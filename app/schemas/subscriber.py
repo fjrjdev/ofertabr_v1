@@ -3,16 +3,21 @@ from datetime import datetime
 from typing import Optional
 
 
+
+
 class SubscriberCreate(BaseModel):
     email: EmailStr
     name: str
 
 
 class SubscriberResponse(BaseModel):
-    id: int
+    id: str 
     email: str
     name: str
     is_active: bool
-    created_at: datetime
-    
-    model_config = ConfigDict(from_attributes=True)
+    subscribed_at: datetime
+    unsubscribed_at: Optional[datetime] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
