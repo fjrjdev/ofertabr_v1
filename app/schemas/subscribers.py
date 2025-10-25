@@ -1,8 +1,7 @@
 from pydantic import BaseModel, EmailStr, ConfigDict
 from datetime import datetime
 from typing import Optional
-
-
+from uuid import UUID
 
 
 class SubscriberCreate(BaseModel):
@@ -11,8 +10,8 @@ class SubscriberCreate(BaseModel):
 
 
 class SubscriberResponse(BaseModel):
-    id: str 
-    email: str
+    id: UUID
+    email: EmailStr
     name: str
     is_active: bool
     subscribed_at: datetime
@@ -21,3 +20,4 @@ class SubscriberResponse(BaseModel):
     updated_at: Optional[datetime] = None
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
+
