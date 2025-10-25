@@ -11,7 +11,7 @@ from app.core.database import Base
 # Import ALL models here
 from app.models.subscriber import Subscriber
 from app.models.newsletter import NewsletterEdition
-from app.models.scraped_content import ScrapedContent
+from app.models.scraped_content import ScrapedContent, ScrapedImage
 
 
 # Alembic Config object
