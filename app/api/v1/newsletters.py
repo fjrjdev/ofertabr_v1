@@ -16,13 +16,13 @@ router = APIRouter(
     tags=["newsletters"]
 )
 
-@router.get("/", response_model=List[NewsletterEditionInDBBase], response_model_exclude_none=True)
+@router.get("/", response_model=List[NewsletterEditionInDBBase], response_model_exclude_none=True, summary="List all newsletters")
 async def get_all_newsletters(db: AsyncSession = Depends(get_db)):
     """Get all newsletters"""
     service = NewsletterService(db)
     return await service.get_all_newsletters()
 
-@router.get("/{newsletter_id}", response_model=NewsletterEditionInDBBase, response_model_exclude_none=True)
+@router.get("/{newsletter_id}", response_model=NewsletterEditionInDBBase, response_model_exclude_none=True, summary="Get a newsletter by ID")
 async def get_newsletter_by_id(
     newsletter_id: UUID,
     db: AsyncSession = Depends(get_db)
@@ -34,7 +34,7 @@ async def get_newsletter_by_id(
         raise HTTPException(status_code=404, detail="Newsletter not found")
     return newsletter
 
-@router.post("/", response_model=NewsletterEditionInDBBase, response_model_exclude_none=True, status_code=status.HTTP_201_CREATED)
+@router.post("/", response_model=NewsletterEditionInDBBase, response_model_exclude_none=True, status_code=status.HTTP_201_CREATED, summary="Create a newsletter")
 async def create_newsletter(
     newsletter_data: NewsletterEditionCreate,
     db: AsyncSession = Depends(get_db)
@@ -56,7 +56,7 @@ async def update_newsletter(
         raise HTTPException(status_code=404, detail="Newsletter not found")
     return updated
 
-@router.delete("/{newsletter_id}", response_model=NewsletterEditionInDBBase, response_model_exclude_none=True)
+@router.delete("/{newsletter_id}", response_model=NewsletterEditionInDBBase, response_model_exclude_none=True, summary="Delete a newsletter")
 async def remove_newsletter(
     newsletter_id: UUID,
     db: AsyncSession = Depends(get_db)
