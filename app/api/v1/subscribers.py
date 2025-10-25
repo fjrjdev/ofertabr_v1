@@ -13,7 +13,7 @@ from app.services.subscribers import SubscriberService
 router = APIRouter()
 
 
-@router.post("/", response_model=SubscriberResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/", response_model=SubscriberResponse, response_model_exclude_none=True, status_code=status.HTTP_201_CREATED)
 async def subscribe(subscriber_data: SubscriberCreate, db: AsyncSession = Depends(get_db)):
     """Subscribe to newsletter"""
     service = SubscriberService(db)
@@ -25,7 +25,7 @@ async def subscribe(subscriber_data: SubscriberCreate, db: AsyncSession = Depend
         )
     return subscriber
 
-@router.get("/", response_model=List[SubscriberResponse])
+@router.get("/", response_model=List[SubscriberResponse], response_model_exclude_none=True)
 async def list_subscribers(
     db: AsyncSession = Depends(get_db)
 ):
@@ -34,7 +34,7 @@ async def list_subscribers(
     subscribers = await service.get_all_subscribers()
     return subscribers
 
-@router.get("/by-id/{subscriber_id}", response_model=SubscriberResponse)
+@router.get("/by-id/{subscriber_id}", response_model=SubscriberResponse, response_model_exclude_none=True)
 async def get_subscriber_by_id(subscriber_id: UUID, db: AsyncSession = Depends(get_db)):
     """Get a subscriber by ID"""
     service = SubscriberService(db)
@@ -43,7 +43,7 @@ async def get_subscriber_by_id(subscriber_id: UUID, db: AsyncSession = Depends(g
         raise HTTPException(status_code=404, detail="Subscriber not found")
     return subscriber
 
-@router.get("/by-email/{email}", response_model=SubscriberResponse)
+@router.get("/by-email/{email}", response_model=SubscriberResponse, response_model_exclude_none=True)
 async def get_subscriber_by_email(email: EmailStr, db: AsyncSession = Depends(get_db)):
     """Get a subscriber by email"""
     service = SubscriberService(db)
