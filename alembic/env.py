@@ -1,12 +1,3 @@
-import sys
-import os
-
-# Forçar UTF-8
-if sys.platform == "win32":
-    import codecs
-    sys.stdout = codecs.getwriter("utf-8")(sys.stdout.detach())
-    sys.stderr = codecs.getwriter("utf-8")(sys.stderr.detach())
-
 from logging.config import fileConfig
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
@@ -19,6 +10,9 @@ from app.core.database import Base
 
 # Import ALL models here
 from app.models.subscriber import Subscriber
+from app.models.newsletter import NewsletterEdition
+from app.models.scraped_content import ScrapedContent, ScrapedImage
+
 
 # Alembic Config object
 config = context.config
