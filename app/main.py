@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
-from app.api.v1 import subscribers, newsletters
+from app.api.v1 import subscribers, newsletters, scraped_content
 
 # Import models to register them with SQLAlchemy
 from app.models import Subscriber, NewsletterEdition, ScrapedContent, ScrapedImage
@@ -33,6 +33,12 @@ app.include_router(
     newsletters.router,
     prefix=f"{settings.API_V1_STR}/newsletters",    
     tags=["newsletters"]
+)
+
+app.include_router(
+    scraped_content.router,
+    prefix=f"{settings.API_V1_STR}/scraped-content",
+    tags=["scraped-content"]
 )
 
 
