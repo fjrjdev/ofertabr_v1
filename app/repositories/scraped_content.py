@@ -125,6 +125,13 @@ class ScrapedContentRepository:
         await self.db.commit()
         await self.db.refresh(content)
         
+        result = await self.db.execute(
+            select(ScrapedContent)
+            .options(selectinload(ScrapedContent.images))
+            .where(ScrapedContent.id == content_id)
+        )
+        content = result.scalar_one()
+        
         return ScrapedContentInDBBase.model_validate(content)
 
     async def remove(self, content_id: UUID):
