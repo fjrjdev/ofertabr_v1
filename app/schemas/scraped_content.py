@@ -2,6 +2,7 @@ from pydantic import BaseModel, ConfigDict, HttpUrl
 from typing import Optional, List
 from uuid import UUID
 from datetime import datetime
+from decimal import Decimal
 
 
 # Schemas para ScrapedImage
@@ -52,6 +53,18 @@ class ScrapedContentBase(BaseModel):
     source_url: str
     published_at: Optional[datetime] = None
     is_processed: Optional[bool] = False
+    
+    # Product-specific fields
+    product_url: Optional[str] = None
+    current_price: Optional[Decimal] = None
+    original_price: Optional[Decimal] = None
+    discount_percentage: Optional[Decimal] = None
+    installments: Optional[str] = None
+    free_shipping: Optional[bool] = False
+    store_name: Optional[str] = None
+    category: Optional[str] = None
+    rating: Optional[Decimal] = None
+    reviews_count: Optional[int] = None
 
 
 class ScrapedContentCreate(ScrapedContentBase):
@@ -64,6 +77,18 @@ class ScrapedContentUpdate(BaseModel):
     source_url: Optional[str] = None
     published_at: Optional[datetime] = None
     is_processed: Optional[bool] = None
+    
+    # Product-specific fields
+    product_url: Optional[str] = None
+    current_price: Optional[Decimal] = None
+    original_price: Optional[Decimal] = None
+    discount_percentage: Optional[Decimal] = None
+    installments: Optional[str] = None
+    free_shipping: Optional[bool] = None
+    store_name: Optional[str] = None
+    category: Optional[str] = None
+    rating: Optional[Decimal] = None
+    reviews_count: Optional[int] = None
 
 
 class ScrapedContentInDBBase(ScrapedContentBase):

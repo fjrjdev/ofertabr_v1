@@ -1,4 +1,4 @@
-from sqlalchemy import  Column, ForeignKey, Integer, String, Text, DateTime, Boolean
+from sqlalchemy import Column, ForeignKey, Integer, String, Text, DateTime, Boolean, Numeric
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.models.base import TimestampMixin
@@ -16,6 +16,18 @@ class ScrapedContent(Base, TimestampMixin):
     published_at = Column(DateTime(timezone=True), nullable=True)
     scraped_at = Column(DateTime(timezone=True), server_default=func.now())
     is_processed = Column(Boolean, default=False)
+    
+    # Product-specific fields
+    product_url = Column(String(1000), nullable=True)
+    current_price = Column(Numeric(10, 2), nullable=True)
+    original_price = Column(Numeric(10, 2), nullable=True)
+    discount_percentage = Column(Numeric(5, 2), nullable=True)
+    installments = Column(String(200), nullable=True)
+    free_shipping = Column(Boolean, default=False)
+    store_name = Column(String(100), nullable=True)
+    category = Column(String(100), nullable=True)
+    rating = Column(Numeric(3, 2), nullable=True)
+    reviews_count = Column(Integer, nullable=True)
     
     images = relationship("ScrapedImage", back_populates="content", cascade="all, delete-orphan")
 
