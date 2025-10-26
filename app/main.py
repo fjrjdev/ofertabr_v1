@@ -8,7 +8,7 @@ from app.api.v1 import subscribers, newsletters, scraped_content, auth
 # Import models to register them with SQLAlchemy
 from app.models import Subscriber, NewsletterEdition, ScrapedContent, ScrapedImage
 
-# Configurar logging
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
