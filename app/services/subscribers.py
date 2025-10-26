@@ -33,12 +33,24 @@ class SubscriberService:
         cached = await cache_service.get(cache_key)
         if cached:
             logger.info("Cache hit for all subscribers")
-            return cached
+            from app.schemas.subscribers import SubscriberInDB
+            return [SubscriberInDB(**item) for item in cached]
         
         subscribers = await self.repo.get_all()
         
         if subscribers:
-            await cache_service.set(cache_key, [s.model_dump() for s in subscribers], ttl=300)
+            cache_data = [{
+                "id": str(s.id),
+                "name": s.name,
+                "email": s.email,
+                "is_active": s.is_active,
+                "subscribed_at": s.subscribed_at.isoformat() if s.subscribed_at else None,
+                "unsubscribed_at": s.unsubscribed_at.isoformat() if s.unsubscribed_at else None,
+                "created_at": s.created_at.isoformat() if hasattr(s, 'created_at') and s.created_at else None,
+                "updated_at": s.updated_at.isoformat() if hasattr(s, 'updated_at') and s.updated_at else None,
+            } for s in subscribers]
+            await cache_service.set(cache_key, cache_data, ttl=300)
+            logger.info(f"Cached {len(cache_data)} subscribers")
         
         return subscribers
     
@@ -49,12 +61,24 @@ class SubscriberService:
         cached = await cache_service.get(cache_key)
         if cached:
             logger.info("Cache hit for active subscribers")
-            return cached
+            from app.schemas.subscribers import SubscriberInDB
+            return [SubscriberInDB(**item) for item in cached]
         
         subscribers = await self.repo.get_active()
         
         if subscribers:
-            await cache_service.set(cache_key, [s.model_dump() for s in subscribers], ttl=600)
+            cache_data = [{
+                "id": str(s.id),
+                "name": s.name,
+                "email": s.email,
+                "is_active": s.is_active,
+                "subscribed_at": s.subscribed_at.isoformat() if s.subscribed_at else None,
+                "unsubscribed_at": s.unsubscribed_at.isoformat() if s.unsubscribed_at else None,
+                "created_at": s.created_at.isoformat() if hasattr(s, 'created_at') and s.created_at else None,
+                "updated_at": s.updated_at.isoformat() if hasattr(s, 'updated_at') and s.updated_at else None,
+            } for s in subscribers]
+            await cache_service.set(cache_key, cache_data, ttl=600)
+            logger.info(f"Cached {len(cache_data)} active subscribers")
         
         return subscribers
     
