@@ -86,8 +86,8 @@ app.include_router(
 
 app.include_router(
     scraped_content.router,
-    prefix=f"{settings.API_V1_STR}/scraped-content",
-    tags=["scraped-content"]
+    prefix=f"{settings.API_V1_STR}/scraped_content",
+    tags=["scraped_content"]
 )
 
 
