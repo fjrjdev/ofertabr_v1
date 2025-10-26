@@ -5,6 +5,9 @@ from sqlalchemy import select
 from typing import List
 from pydantic import EmailStr
 from app.core.database import get_db
+# AUTHENTICATION TEMPORARILY DISABLED
+# from app.core.dependencies import get_current_active_admin
+# from app.models.admin import Admin
 from app.models.subscriber import Subscriber
 from app.repositories.subscribers import SubscriberRepository
 from app.schemas.subscribers import SubscriberCreate, SubscriberResponse
@@ -28,6 +31,8 @@ async def subscribe(subscriber_data: SubscriberCreate, db: AsyncSession = Depend
 @router.get("/", response_model=List[SubscriberResponse], response_model_exclude_none=True, summary="List all subscribers")
 async def list_subscribers(
     db: AsyncSession = Depends(get_db)
+    # AUTHENTICATION TEMPORARILY DISABLED
+    # current_admin: Admin = Depends(get_current_active_admin)
 ):
     """List all subscribers"""
     service = SubscriberService(db)
@@ -35,7 +40,12 @@ async def list_subscribers(
     return subscribers
 
 @router.get("/by-id/{subscriber_id}", response_model=SubscriberResponse, response_model_exclude_none=True, summary="Get a subscriber by ID")
-async def get_subscriber_by_id(subscriber_id: UUID, db: AsyncSession = Depends(get_db)):
+async def get_subscriber_by_id(
+    subscriber_id: UUID,
+    db: AsyncSession = Depends(get_db)
+    # AUTHENTICATION TEMPORARILY DISABLED
+    # current_admin: Admin = Depends(get_current_active_admin)
+):
     """Get a subscriber by ID"""
     service = SubscriberService(db)
     subscriber = await service.get_subscriber_by_id(subscriber_id)
@@ -44,7 +54,12 @@ async def get_subscriber_by_id(subscriber_id: UUID, db: AsyncSession = Depends(g
     return subscriber
 
 @router.get("/by-email/{email}", response_model=SubscriberResponse, response_model_exclude_none=True, summary="Get a subscriber by email")
-async def get_subscriber_by_email(email: EmailStr, db: AsyncSession = Depends(get_db)):
+async def get_subscriber_by_email(
+    email: EmailStr,
+    db: AsyncSession = Depends(get_db)
+    # AUTHENTICATION TEMPORARILY DISABLED
+    # current_admin: Admin = Depends(get_current_active_admin)
+):
     """Get a subscriber by email"""
     service = SubscriberService(db)
     subscriber = await service.get_subscriber_by_email(email)
@@ -88,6 +103,8 @@ async def unsubscribe(
 async def delete_subscriber(
     subscriber_id: UUID,
     db: AsyncSession = Depends(get_db)
+    # AUTHENTICATION TEMPORARILY DISABLED
+    # current_admin: Admin = Depends(get_current_active_admin)
 ):
     """
     Permanently delete subscriber from database (hard delete).

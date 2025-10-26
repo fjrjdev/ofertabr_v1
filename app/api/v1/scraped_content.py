@@ -12,6 +12,9 @@ from app.schemas.scraped_content import (
 )
 from app.services.scraped_content import ScrapedContentService
 from app.core.database import get_db
+# AUTHENTICATION TEMPORARILY DISABLED
+# from app.core.dependencies import get_current_active_admin
+# from app.models.admin import Admin
 
 router = APIRouter()
 
@@ -27,6 +30,8 @@ router = APIRouter()
 async def create_scraped_content(
     content_data: ScrapedContentCreate,
     db: AsyncSession = Depends(get_db)
+    # AUTHENTICATION TEMPORARILY DISABLED
+    # current_admin: Admin = Depends(get_current_active_admin)
 ):
     """
     Create new scraped content from n8n webhook.
@@ -59,6 +64,8 @@ async def list_scraped_contents(
     skip: int = Query(0, ge=0, description="Number of records to skip"),
     limit: int = Query(100, ge=1, le=1000, description="Max records to return"),
     db: AsyncSession = Depends(get_db)
+    # AUTHENTICATION TEMPORARILY DISABLED
+    # current_admin: Admin = Depends(get_current_active_admin)
 ):
     """Get all scraped contents with pagination"""
     service = ScrapedContentService(db)
@@ -75,8 +82,10 @@ async def list_unprocessed_contents(
     skip: int = Query(0, ge=0, description="Number of records to skip"),
     limit: int = Query(100, ge=1, le=1000, description="Max records to return"),
     db: AsyncSession = Depends(get_db)
+    # AUTHENTICATION TEMPORARILY DISABLED
+    # current_admin: Admin = Depends(get_current_active_admin)
 ):
-    """Get all unprocessed scraped contents (ready to be used in newsletters)"""
+    """Get all unprocessed scraped contents"""
     service = ScrapedContentService(db)
     return await service.get_unprocessed_contents(skip=skip, limit=limit)
 
@@ -90,6 +99,8 @@ async def list_unprocessed_contents(
 async def get_scraped_content_by_id(
     content_id: UUID,
     db: AsyncSession = Depends(get_db)
+    # AUTHENTICATION TEMPORARILY DISABLED
+    # current_admin: Admin = Depends(get_current_active_admin)
 ):
     """Get a specific scraped content by ID"""
     service = ScrapedContentService(db)
@@ -113,8 +124,10 @@ async def get_scraped_content_by_id(
 async def mark_content_as_processed(
     content_id: UUID,
     db: AsyncSession = Depends(get_db)
+    # AUTHENTICATION TEMPORARILY DISABLED
+    # current_admin: Admin = Depends(get_current_active_admin)
 ):
-    """Mark content as processed (after using it in a newsletter)"""
+    """Mark content as processed"""
     service = ScrapedContentService(db)
     content = await service.mark_as_processed(content_id)
     
@@ -137,6 +150,8 @@ async def update_scraped_content(
     content_id: UUID,
     content_data: ScrapedContentUpdate,
     db: AsyncSession = Depends(get_db)
+    # AUTHENTICATION TEMPORARILY DISABLED
+    # current_admin: Admin = Depends(get_current_active_admin)
 ):
     """Update an existing scraped content"""
     service = ScrapedContentService(db)
@@ -160,6 +175,8 @@ async def update_scraped_content(
 async def delete_scraped_content(
     content_id: UUID,
     db: AsyncSession = Depends(get_db)
+    # AUTHENTICATION TEMPORARILY DISABLED
+    # current_admin: Admin = Depends(get_current_active_admin)
 ):
     """Delete a scraped content and its images"""
     service = ScrapedContentService(db)
@@ -185,6 +202,8 @@ async def add_image_to_content(
     content_id: UUID,
     image_data: ScrapedImageCreate,
     db: AsyncSession = Depends(get_db)
+    # AUTHENTICATION TEMPORARILY DISABLED
+    # current_admin: Admin = Depends(get_current_active_admin)
 ):
     """Add an image to existing scraped content"""
     service = ScrapedContentService(db)
