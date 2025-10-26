@@ -24,15 +24,48 @@ class ScrapedContentService:
         """Get unprocessed scraped contents with caching"""
         cache_key = f"scraped_content:unprocessed:{skip}:{limit}"
         
+        # Try to get from cache
         cached = await cache_service.get(cache_key)
         if cached:
             logger.info(f"Cache hit for unprocessed contents: {cache_key}")
-            return cached
+            # Convert cached dicts back to schema objects
+            from app.schemas.scraped_content import ScrapedContentInDBBase
+            return [ScrapedContentInDBBase(**item) for item in cached]
         
+        # Get from database
         contents = await self.repo.get_unprocessed(skip=skip, limit=limit)
         
+        # Cache the results
         if contents:
-            await cache_service.set(cache_key, [c.model_dump() for c in contents], ttl=300)
+            # Convert SQLAlchemy models to dicts for caching
+            cache_data = []
+            for content in contents:
+                content_dict = {
+                    "id": str(content.id),
+                    "title": content.title,
+                    "content": content.content,
+                    "source_url": content.source_url,
+                    "published_at": content.published_at.isoformat() if content.published_at else None,
+                    "scraped_at": content.scraped_at.isoformat() if content.scraped_at else None,
+                    "is_processed": content.is_processed,
+                    "product_url": content.product_url,
+                    "current_price": float(content.current_price) if content.current_price else None,
+                    "original_price": float(content.original_price) if content.original_price else None,
+                    "discount_percentage": float(content.discount_percentage) if content.discount_percentage else None,
+                    "installments": content.installments,
+                    "free_shipping": content.free_shipping,
+                    "store_name": content.store_name,
+                    "category": content.category,
+                    "rating": float(content.rating) if content.rating else None,
+                    "reviews_count": content.reviews_count,
+                    "created_at": content.created_at.isoformat() if hasattr(content, 'created_at') and content.created_at else None,
+                    "updated_at": content.updated_at.isoformat() if hasattr(content, 'updated_at') and content.updated_at else None,
+                    "images": []
+                }
+                cache_data.append(content_dict)
+            
+            await cache_service.set(cache_key, cache_data, ttl=300)
+            logger.info(f"Cached {len(cache_data)} unprocessed contents")
         
         return contents
 
