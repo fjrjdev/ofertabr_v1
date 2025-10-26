@@ -16,6 +16,13 @@ class SubscriberRepository:
     async def get_all(self):
         result = await self.db.execute(select(Subscriber))
         return result.scalars().all()
+    
+    async def get_active(self):
+        """Get all active subscribers"""
+        result = await self.db.execute(
+            select(Subscriber).where(Subscriber.is_active == True)
+        )
+        return result.scalars().all()
 
     async def get_by_id(self, subscriber_id: UUID):
         return await self.db.get(Subscriber, subscriber_id)
