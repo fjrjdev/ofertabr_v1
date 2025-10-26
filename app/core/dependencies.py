@@ -8,9 +8,6 @@ from app.core.security import decode_access_token
 from app.services.auth_service import AuthService
 
 
-# HTTP Bearer token scheme
-# auto_error=False permite que endpoints públicos funcionem sem token
-# description aparece no Swagger
 security = HTTPBearer(
     scheme_name="Bearer Token",
     description="Token JWT obtido via /auth/request-code e /auth/verify-code"
@@ -89,8 +86,6 @@ async def get_current_active_admin(
     # With passwordless auth, all valid tokens are active
     return current_admin
 
-
-# Keep for backward compatibility
 async def get_current_superuser(
     current_admin: AuthenticatedUser = Depends(get_current_admin)
 ) -> AuthenticatedUser:

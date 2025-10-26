@@ -74,7 +74,7 @@ class CacheService:
         self,
         key: str,
         value: Any,
-        ttl: int = 300
+        ttl: Optional[int] = 300
     ) -> bool:
         """
         Set value in cache
@@ -82,7 +82,7 @@ class CacheService:
         Args:
             key: Cache key
             value: Value to cache
-            ttl: Time to live in seconds (default: 5 minutes)
+            ttl: Time to live in seconds (default: 5 minutes, None for no expiration)
             
         Returns:
             True if successful
@@ -90,7 +90,12 @@ class CacheService:
         try:
             redis = await self._get_redis()
             serialized = json.dumps(value)
-            await redis.setex(key, ttl, serialized)
+            
+            if ttl is None:
+                await redis.set(key, serialized)
+            else:
+                await redis.setex(key, ttl, serialized)
+            
             return True
             
         except Exception as e:
