@@ -3,14 +3,10 @@ import sys
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
-from app.api.v1 import subscribers, newsletters, scraped_content
-# AUTHENTICATION TEMPORARILY DISABLED
-# from app.api.v1 import auth
+from app.api.v1 import subscribers, newsletters, scraped_content, auth
 
 # Import models to register them with SQLAlchemy
 from app.models import Subscriber, NewsletterEdition, ScrapedContent, ScrapedImage
-# AUTHENTICATION TEMPORARILY DISABLED
-# from app.models import Admin
 
 # Configurar logging
 logging.basicConfig(
@@ -26,7 +22,37 @@ logger = logging.getLogger(__name__)
 app = FastAPI(
     title=settings.PROJECT_NAME,
     version=settings.VERSION,
-    openapi_url=f"{settings.API_V1_STR}/openapi.json"
+    description="""
+## 🔐 Autenticação Passwordless
+
+Para acessar endpoints protegidos:
+
+1. **Solicite um código:** `POST /api/v1/auth/request-code`
+2. **Verifique o código no email:** Copie o código de 6 dígitos
+3. **Obtenha o token:** `POST /api/v1/auth/verify-code`
+4. **Autorize no Swagger:** Clique no botão 🔓 **Authorize** (canto superior direito)
+5. **Cole o token** (apenas o valor de `access_token`, sem "Bearer")
+6. **Teste os endpoints protegidos!** 🎉
+
+### Endpoints Públicos
+- Inscrição de newsletter
+- Cancelamento de inscrição
+- Autenticação (request/verify)
+
+### Endpoints Protegidos 🔒
+- Newsletters (criar, listar, enviar)
+- Scraped Content (gerenciar produtos)
+- Subscribers (admin)
+- Auth Admin (gerenciar emails)
+
+📚 **Documentação completa:** `SWAGGER_AUTENTICACAO.md`
+    """,
+    openapi_url=f"{settings.API_V1_STR}/openapi.json",
+    swagger_ui_parameters={
+        "persistAuthorization": True,  # Mantém o token entre reloads
+        "filter": True,  # Adiciona barra de busca
+        "tryItOutEnabled": True,  # "Try it out" habilitado por padrão
+    }
 )
 
 # CORS
@@ -39,12 +65,11 @@ app.add_middleware(
 )
 
 # Include routers
-# AUTHENTICATION TEMPORARILY DISABLED
-# app.include_router(
-#     auth.router,
-#     prefix=f"{settings.API_V1_STR}/auth",
-#     tags=["authentication"]
-# )
+app.include_router(
+    auth.router,
+    prefix=f"{settings.API_V1_STR}/auth",
+    tags=["authentication"]
+)
 
 app.include_router(
     subscribers.router,
