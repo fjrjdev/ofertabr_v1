@@ -33,8 +33,8 @@ class SubscriberService:
         cached = await cache_service.get(cache_key)
         if cached:
             logger.info("Cache hit for all subscribers")
-            from app.schemas.subscribers import SubscriberInDB
-            return [SubscriberInDB(**item) for item in cached]
+            from app.schemas.subscribers import SubscriberResponse
+            return [SubscriberResponse(**item) for item in cached]
         
         subscribers = await self.repo.get_all()
         
@@ -61,8 +61,8 @@ class SubscriberService:
         cached = await cache_service.get(cache_key)
         if cached:
             logger.info("Cache hit for active subscribers")
-            from app.schemas.subscribers import SubscriberInDB
-            return [SubscriberInDB(**item) for item in cached]
+            from app.schemas.subscribers import SubscriberResponse
+            return [SubscriberResponse(**item) for item in cached]
         
         subscribers = await self.repo.get_active()
         
