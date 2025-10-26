@@ -1,6 +1,3 @@
-"""
-Authentication dependencies for passwordless auth
-"""
 from typing import Optional
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -58,7 +55,6 @@ async def get_current_admin(
     if token_data is None or token_data.email is None:
         raise credentials_exception
     
-    # Optionally verify email is still in allowed list
     service = AuthService()
     is_allowed = await service._is_allowed_email(token_data.email)
     
@@ -83,7 +79,6 @@ async def get_current_active_admin(
     Returns:
         Current active admin
     """
-    # With passwordless auth, all valid tokens are active
     return current_admin
 
 async def get_current_superuser(
