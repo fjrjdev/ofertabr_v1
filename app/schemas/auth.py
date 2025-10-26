@@ -26,3 +26,7 @@ class AuthMagicLink(BaseModel):
     """Request magic link via email"""
     email: EmailStr = Field(..., description="Admin email address")
 
+
+class EmailManage(BaseModel):
+    """Manage allowed admin email"""
+    email: EmailStr = Field(..., description="Admin email address to add or remove")
