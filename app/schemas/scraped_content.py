@@ -49,12 +49,11 @@ class ScrapedImageInDBBase(ScrapedImageBase):
 # Schemas para ScrapedContent
 class ScrapedContentBase(BaseModel):
     title: str
-    content: str
+    content: Optional[str] = None  # Opcional - será gerado automaticamente se não fornecido
     source_url: str
     published_at: Optional[datetime] = None
     is_processed: Optional[bool] = False
     
-    # Product-specific fields
     product_url: Optional[str] = None
     current_price: Optional[Decimal] = None
     original_price: Optional[Decimal] = None
@@ -100,3 +99,27 @@ class ScrapedContentInDBBase(ScrapedContentBase):
 
     model_config = ConfigDict(from_attributes=True)
 
+
+
+class ScrapedContentBatchCreate(BaseModel):
+    """Schema for batch creation of scraped content"""
+    items: List[ScrapedContentCreate]
+    
+    model_config = ConfigDict(from_attributes=True)
+
+
+class BatchResultItem(BaseModel):
+    """Individual result for each item in batch"""
+    source_url: str
+    success: bool
+    content_id: Optional[UUID] = None
+    error: Optional[str] = None
+
+
+class ScrapedContentBatchResponse(BaseModel):
+    """Response schema for batch creation"""
+    total: int
+    created: int
+    skipped: int
+    failed: int
+    results: List[BatchResultItem]

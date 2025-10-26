@@ -11,7 +11,7 @@ class ScrapedContent(Base, TimestampMixin):
     
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     title = Column(String(500), nullable=False)
-    content = Column(Text, nullable=False)
+    content = Column(Text, nullable=True)  # Opcional - gerado automaticamente se não fornecido
     source_url = Column(String(1000), nullable=False)
     published_at = Column(DateTime(timezone=True), nullable=True)
     scraped_at = Column(DateTime(timezone=True), server_default=func.now())

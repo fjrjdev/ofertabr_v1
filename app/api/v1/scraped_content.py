@@ -9,6 +9,7 @@ from app.schemas.scraped_content import (
     ScrapedContentInDBBase,
     ScrapedImageCreate,
     ScrapedImageInDBBase,
+    ScrapedContentBatchResponse,
 )
 from app.services.scraped_content import ScrapedContentService
 from app.core.database import get_db
@@ -18,12 +19,84 @@ router = APIRouter()
 
 
 @router.post(
+    "/batch",
+    response_model=ScrapedContentBatchResponse,
+    response_model_exclude_none=True,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create multiple scraped contents (batch)",
+    description="Endpoint for n8n to send multiple scraped products at once"
+)
+async def create_scraped_content_batch(
+    contents: List[ScrapedContentCreate],
+    db: AsyncSession = Depends(get_db),
+    _: AuthenticatedUser = Depends(get_current_active_admin)
+):
+    """
+    Create multiple scraped contents in a single request.
+    
+    **Protected endpoint - requires authentication**
+    
+    This endpoint is optimized for bulk imports from n8n when your AI agent
+    returns multiple products (up to 100) in a single extraction.
+    
+    **Benefits:**
+    - Single HTTP request instead of multiple calls
+    - Transactional: all items processed in one database transaction
+    - Detailed response with statistics and per-item results
+    - Automatic cache invalidation
+    
+    **Response includes:**
+    - `total`: Total number of items received
+    - `created`: Number of successfully created items
+    - `skipped`: Number of items skipped (duplicate URLs)
+    - `failed`: Number of items that failed to create
+    - `results`: Detailed array with status of each item
+    
+    **Example Request Body:**
+    ```json
+    [
+      {
+        "title": "Product 1",
+        "content": "Description...",
+        "source_url": "https://example.com/product-1",
+        "current_price": 199.90,
+        "images": [...]
+      },
+      {
+        "title": "Product 2",
+        "content": "Description...",
+        "source_url": "https://example.com/product-2",
+        "current_price": 299.90,
+        "images": [...]
+      }
+    ]
+    ```
+    """
+    if not contents:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Contents list cannot be empty"
+        )
+    
+    if len(contents) > 100:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot process more than 100 items at once"
+        )
+    
+    service = ScrapedContentService(db)
+    result = await service.create_batch(contents)
+    
+    return result
+
+
+@router.post(
     "/",
     response_model=ScrapedContentInDBBase,
     response_model_exclude_none=True,
     status_code=status.HTTP_201_CREATED,
-    summary="Create scraped content",
-    description="Endpoint for n8n to send scraped data"
+    summary="Create single scraped content",
+    description="Endpoint for n8n to send single scraped product"
 )
 async def create_scraped_content(
     content_data: ScrapedContentCreate,
@@ -34,6 +107,8 @@ async def create_scraped_content(
     Create new scraped content from n8n webhook.
     
     **Protected endpoint - requires authentication**
+    
+    **Note:** For multiple products, use the `/batch` endpoint instead for better performance.
     
     - **title**: Title of the scraped content
     - **content**: Main content/body

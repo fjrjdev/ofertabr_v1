@@ -112,3 +112,51 @@ class ScrapedContentService:
         """Add image to existing content"""
         return await self.repo.add_image(content_id, image_data)
 
+    async def create_batch(self, contents_data: list[ScrapedContentCreate]):
+        """
+        Create multiple scraped contents in batch.
+        Returns dict with statistics and detailed results.
+        """
+        results = await self.repo.create_batch(contents_data)
+        
+        # Clear cache after batch creation
+        await cache_service.clear_pattern("scraped_content:unprocessed:*")
+        logger.info(f"Cleared unprocessed cache after batch creation of {len(results)} items")
+        
+        # Build response with statistics
+        from app.schemas.scraped_content import BatchResultItem
+        
+        created = 0
+        skipped = 0
+        failed = 0
+        result_items = []
+        
+        for success, content_or_error, source_url in results:
+            if success:
+                created += 1
+                result_items.append(BatchResultItem(
+                    source_url=source_url,
+                    success=True,
+                    content_id=content_or_error.id,
+                    error=None
+                ))
+            else:
+                if content_or_error == "URL already exists":
+                    skipped += 1
+                else:
+                    failed += 1
+                result_items.append(BatchResultItem(
+                    source_url=source_url,
+                    success=False,
+                    content_id=None,
+                    error=content_or_error
+                ))
+        
+        return {
+            "total": len(results),
+            "created": created,
+            "skipped": skipped,
+            "failed": failed,
+            "results": result_items
+        }
+
