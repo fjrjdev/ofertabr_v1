@@ -3,7 +3,8 @@ from app.schemas.auth import (
     AuthRequest,
     AuthVerify,
     AuthToken,
-    AuthMagicLink
+    AuthMagicLink,
+    EmailManage
 )
 from app.services.auth_service import AuthService
 from app.core.config import settings
@@ -176,21 +177,28 @@ from fastapi import Depends as FDepends
     summary="Add allowed admin email"
 )
 async def add_allowed_email(
-    email: str,
+    data: EmailManage,
     current_admin: AuthenticatedUser = FDepends(get_current_active_admin)
 ):
     """
     Add an email to the allowed admins list.
     
     **Protected endpoint - requires authentication**
+    
+    Example:
+    ```json
+    {
+        "email": "novoadmin@exemplo.com"
+    }
+    ```
     """
     service = AuthService()
-    success = await service.add_allowed_email(email)
+    success = await service.add_allowed_email(data.email)
     
     if not success:
-        return {"message": "Email already in allowed list", "email": email}
+        return {"message": "Email already in allowed list", "email": data.email}
     
-    return {"message": "Email added to allowed list", "email": email}
+    return {"message": "Email added to allowed list", "email": data.email}
 
 
 @router.post(
@@ -199,16 +207,23 @@ async def add_allowed_email(
     summary="Remove allowed admin email"
 )
 async def remove_allowed_email(
-    email: str,
+    data: EmailManage,
     current_admin: AuthenticatedUser = FDepends(get_current_active_admin)
 ):
     """
     Remove an email from the allowed admins list.
     
     **Protected endpoint - requires authentication**
+    
+    Example:
+    ```json
+    {
+        "email": "admin@exemplo.com"
+    }
+    ```
     """
     service = AuthService()
-    success = await service.remove_allowed_email(email)
+    success = await service.remove_allowed_email(data.email)
     
     if not success:
         raise HTTPException(
@@ -216,7 +231,7 @@ async def remove_allowed_email(
             detail="Email not in allowed list"
         )
     
-    return {"message": "Email removed from allowed list", "email": email}
+    return {"message": "Email removed from allowed list", "email": data.email}
 
 
 @router.get(
