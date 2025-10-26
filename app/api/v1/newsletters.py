@@ -89,6 +89,56 @@ async def remove_newsletter(
 
 
 @router.post(
+    "/generate",
+    response_model=NewsletterEditionInDBBase,
+    response_model_exclude_none=True,
+    status_code=status.HTTP_201_CREATED,
+    summary="Generate newsletter automatically from scraped products"
+)
+async def generate_newsletter(
+    title: str = Query(..., description="Newsletter title"),
+    intro_text: Optional[str] = Query(None, description="Optional intro text before products"),
+    limit: int = Query(10, ge=1, le=50, description="Max number of products to include"),
+    only_unprocessed: bool = Query(True, description="Use only unprocessed products"),
+    db: AsyncSession = Depends(get_db)
+    # AUTHENTICATION TEMPORARILY DISABLED
+    # current_admin: Admin = Depends(get_current_active_admin)
+):
+    """
+    Generate newsletter automatically from scraped products.
+    
+    This endpoint:
+    1. Fetches products from scraped_content (unprocessed by default)
+    2. Generates HTML content automatically using newsletter_builder
+    3. Creates a new newsletter with the generated content
+    4. Marks products as processed (if only_unprocessed=true)
+    
+    - **title**: Newsletter title
+    - **intro_text**: Optional intro text before product cards
+    - **limit**: Maximum number of products to include (default: 10)
+    - **only_unprocessed**: If true, only uses unprocessed products and marks them as processed
+    
+    Returns the created newsletter with auto-generated HTML content.
+    """
+    newsletter_service = NewsletterService(db)
+    
+    newsletter = await newsletter_service.generate_newsletter_from_products(
+        title=title,
+        intro_text=intro_text,
+        limit=limit,
+        only_unprocessed=only_unprocessed
+    )
+    
+    if not newsletter:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No products available to generate newsletter"
+        )
+    
+    return newsletter
+
+
+@router.post(
     "/{newsletter_id}/send",
     response_model=dict,
     summary="Send newsletter to subscribers"
@@ -109,7 +159,7 @@ async def send_newsletter(
     
     Returns statistics about the send operation.
     """
-    # Get newsletter
+    
     newsletter_service = NewsletterService(db)
     newsletter = await newsletter_service.get_newsletter_by_id(newsletter_id)
     
@@ -119,10 +169,8 @@ async def send_newsletter(
             detail="Newsletter not found"
         )
     
-    # Initialize email service
     email_service = EmailService()
     
-    # Test mode - send to single email
     if test_mode:
         if not test_email:
             raise HTTPException(
@@ -148,11 +196,9 @@ async def send_newsletter(
             "mode": "test"
         }
     
-    # Production mode - send to all active subscribers
     subscriber_service = SubscriberService(db)
     all_subscribers = await subscriber_service.get_all_subscribers()
     
-    # Filter only active subscribers
     active_subscribers = [
         {
             "email": sub.email,
@@ -169,14 +215,12 @@ async def send_newsletter(
             detail="No active subscribers to send to"
         )
     
-    # Send bulk newsletters
     stats = await email_service.send_bulk_newsletters(
         newsletter_title=newsletter.title,
         newsletter_content=newsletter.content,
         subscribers=active_subscribers
     )
     
-    # Update newsletter record
     newsletter.sent_at = datetime.utcnow()
     newsletter.total_sent = stats["success"]
     await db.commit()
