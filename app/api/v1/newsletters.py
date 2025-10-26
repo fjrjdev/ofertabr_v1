@@ -14,9 +14,7 @@ from app.services.newsletters import NewsletterService
 from app.services.subscribers import SubscriberService
 from app.services.email_service import EmailService
 from app.core.database import get_db
-# AUTHENTICATION TEMPORARILY DISABLED
-# from app.core.dependencies import get_current_active_admin
-# from app.models.admin import Admin
+from app.core.dependencies import get_current_active_admin, AuthenticatedUser
 
 router = APIRouter(
     prefix="/newsletters",
@@ -25,22 +23,20 @@ router = APIRouter(
 
 @router.get("/", response_model=List[NewsletterEditionInDBBase], response_model_exclude_none=True, summary="List all newsletters")
 async def get_all_newsletters(
-    db: AsyncSession = Depends(get_db)
-    # AUTHENTICATION TEMPORARILY DISABLED
-    # current_admin: Admin = Depends(get_current_active_admin)
+    db: AsyncSession = Depends(get_db),
+    _: AuthenticatedUser = Depends(get_current_active_admin)
 ):
-    """Get all newsletters"""
+    """Get all newsletters (protected - requires authentication)"""
     service = NewsletterService(db)
     return await service.get_all_newsletters()
 
 @router.get("/{newsletter_id}", response_model=NewsletterEditionInDBBase, response_model_exclude_none=True, summary="Get a newsletter by ID")
 async def get_newsletter_by_id(
     newsletter_id: UUID,
-    db: AsyncSession = Depends(get_db)
-    # AUTHENTICATION TEMPORARILY DISABLED
-    # current_admin: Admin = Depends(get_current_active_admin)
+    db: AsyncSession = Depends(get_db),
+    _: AuthenticatedUser = Depends(get_current_active_admin)
 ):
-    """Get a newsletter by ID"""
+    """Get a newsletter by ID (protected - requires authentication)"""
     service = NewsletterService(db)
     newsletter = await service.get_newsletter_by_id(newsletter_id)
     if not newsletter:
@@ -50,11 +46,10 @@ async def get_newsletter_by_id(
 @router.post("/", response_model=NewsletterEditionInDBBase, response_model_exclude_none=True, status_code=status.HTTP_201_CREATED, summary="Create a newsletter")
 async def create_newsletter(
     newsletter_data: NewsletterEditionCreate,
-    db: AsyncSession = Depends(get_db)
-    # AUTHENTICATION TEMPORARILY DISABLED
-    # current_admin: Admin = Depends(get_current_active_admin)
+    db: AsyncSession = Depends(get_db),
+    _: AuthenticatedUser = Depends(get_current_active_admin)
 ):
-    """Create a new newsletter"""
+    """Create a new newsletter (protected - requires authentication)"""
     service = NewsletterService(db)
     return await service.create_newsletter(newsletter_data)
 
@@ -62,11 +57,10 @@ async def create_newsletter(
 async def update_newsletter(
     newsletter_id: UUID,
     newsletter_data: NewsletterEditionUpdate,
-    db: AsyncSession = Depends(get_db)
-    # AUTHENTICATION TEMPORARILY DISABLED
-    # current_admin: Admin = Depends(get_current_active_admin)
+    db: AsyncSession = Depends(get_db),
+    _: AuthenticatedUser = Depends(get_current_active_admin)
 ):
-    """Update an existing newsletter"""
+    """Update an existing newsletter (protected - requires authentication)"""
     service = NewsletterService(db)
     updated = await service.update_newsletter(newsletter_id, newsletter_data)
     if not updated:
@@ -76,11 +70,10 @@ async def update_newsletter(
 @router.delete("/{newsletter_id}", response_model=NewsletterEditionInDBBase, response_model_exclude_none=True, summary="Delete a newsletter")
 async def remove_newsletter(
     newsletter_id: UUID,
-    db: AsyncSession = Depends(get_db)
-    # AUTHENTICATION TEMPORARILY DISABLED
-    # current_admin: Admin = Depends(get_current_active_admin)
+    db: AsyncSession = Depends(get_db),
+    _: AuthenticatedUser = Depends(get_current_active_admin)
 ):
-    """Delete a newsletter"""
+    """Delete a newsletter (protected - requires authentication)"""
     service = NewsletterService(db)
     deleted = await service.remove_newsletter(newsletter_id)
     if not deleted:
@@ -100,12 +93,13 @@ async def generate_newsletter(
     intro_text: Optional[str] = Query(None, description="Optional intro text before products"),
     limit: int = Query(10, ge=1, le=50, description="Max number of products to include"),
     only_unprocessed: bool = Query(True, description="Use only unprocessed products"),
-    db: AsyncSession = Depends(get_db)
-    # AUTHENTICATION TEMPORARILY DISABLED
-    # current_admin: Admin = Depends(get_current_active_admin)
+    db: AsyncSession = Depends(get_db),
+    _: AuthenticatedUser = Depends(get_current_active_admin)
 ):
     """
     Generate newsletter automatically from scraped products.
+    
+    **Protected endpoint - requires authentication**
     
     This endpoint:
     1. Fetches products from scraped_content (unprocessed by default)
@@ -147,12 +141,13 @@ async def send_newsletter(
     newsletter_id: UUID,
     test_mode: bool = Query(False, description="Send only to test email"),
     test_email: Optional[EmailStr] = Query(None, description="Email for testing"),
-    db: AsyncSession = Depends(get_db)
-    # AUTHENTICATION TEMPORARILY DISABLED
-    # current_admin: Admin = Depends(get_current_active_admin)
+    db: AsyncSession = Depends(get_db),
+    _: AuthenticatedUser = Depends(get_current_active_admin)
 ):
     """
     Send newsletter to all active subscribers or to a test email.
+    
+    **Protected endpoint - requires authentication**
     
     - **test_mode**: If true, sends only to test_email (useful for preview)
     - **test_email**: Email address for testing (required if test_mode=true)

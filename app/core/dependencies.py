@@ -1,33 +1,53 @@
+"""
+Authentication dependencies for passwordless auth
+"""
 from typing import Optional
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from sqlalchemy.ext.asyncio import AsyncSession
-from app.core.database import get_db
 from app.core.security import decode_access_token
-from app.models.admin import Admin
-from app.repositories.admins import AdminRepository
+from app.services.auth_service import AuthService
 
 
 # HTTP Bearer token scheme
-security = HTTPBearer()
+# auto_error=False permite que endpoints públicos funcionem sem token
+# description aparece no Swagger
+security = HTTPBearer(
+    scheme_name="Bearer Token",
+    description="Token JWT obtido via /auth/request-code e /auth/verify-code"
+)
+
+
+class AuthenticatedUser:
+    """
+    Represents an authenticated user (admin)
+    No database lookup needed - info comes from JWT
+    """
+    def __init__(self, email: str, user_type: str = "admin"):
+        self.email = email
+        self.user_type = user_type
+        self.is_active = True  # All valid tokens are active
+    
+    def __repr__(self):
+        return f"<AuthenticatedUser {self.email}>"
 
 
 async def get_current_admin(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
-    db: AsyncSession = Depends(get_db)
-) -> Admin:
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+) -> AuthenticatedUser:
     """
     Dependency to get current authenticated admin.
     
+    Validates JWT token and extracts user info.
+    No database lookup needed!
+    
     Args:
         credentials: HTTP Bearer credentials from request header
-        db: Database session
         
     Returns:
-        Current authenticated admin
+        Authenticated user object
         
     Raises:
-        HTTPException: If token is invalid or admin not found
+        HTTPException: If token is invalid
     """
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -41,24 +61,22 @@ async def get_current_admin(
     if token_data is None or token_data.email is None:
         raise credentials_exception
     
-    repository = AdminRepository(db)
-    admin = await repository.get_by_email(token_data.email)
+    # Optionally verify email is still in allowed list
+    service = AuthService()
+    is_allowed = await service._is_allowed_email(token_data.email)
     
-    if admin is None:
-        raise credentials_exception
-    
-    if not admin.is_active:
+    if not is_allowed:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Inactive admin account"
+            detail="Email no longer authorized"
         )
     
-    return admin
+    return AuthenticatedUser(email=token_data.email)
 
 
 async def get_current_active_admin(
-    current_admin: Admin = Depends(get_current_admin)
-) -> Admin:
+    current_admin: AuthenticatedUser = Depends(get_current_admin)
+) -> AuthenticatedUser:
     """
     Dependency to get current active admin.
     
@@ -67,37 +85,26 @@ async def get_current_active_admin(
         
     Returns:
         Current active admin
-        
-    Raises:
-        HTTPException: If admin is inactive
     """
-    if not current_admin.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Inactive admin account"
-        )
+    # With passwordless auth, all valid tokens are active
     return current_admin
 
 
+# Keep for backward compatibility
 async def get_current_superuser(
-    current_admin: Admin = Depends(get_current_admin)
-) -> Admin:
+    current_admin: AuthenticatedUser = Depends(get_current_admin)
+) -> AuthenticatedUser:
     """
     Dependency to get current superuser admin.
+    
+    With passwordless auth, all authenticated users have full access.
+    This is kept for API compatibility.
     
     Args:
         current_admin: Current admin from get_current_admin dependency
         
     Returns:
-        Current superuser admin
-        
-    Raises:
-        HTTPException: If admin is not a superuser
+        Current admin (all are "superusers")
     """
-    if not current_admin.is_superuser:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not enough permissions. Superuser access required."
-        )
     return current_admin
 

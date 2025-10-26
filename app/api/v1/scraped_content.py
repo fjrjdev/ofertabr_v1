@@ -12,9 +12,7 @@ from app.schemas.scraped_content import (
 )
 from app.services.scraped_content import ScrapedContentService
 from app.core.database import get_db
-# AUTHENTICATION TEMPORARILY DISABLED
-# from app.core.dependencies import get_current_active_admin
-# from app.models.admin import Admin
+from app.core.dependencies import get_current_active_admin, AuthenticatedUser
 
 router = APIRouter()
 
@@ -29,12 +27,13 @@ router = APIRouter()
 )
 async def create_scraped_content(
     content_data: ScrapedContentCreate,
-    db: AsyncSession = Depends(get_db)
-    # AUTHENTICATION TEMPORARILY DISABLED
-    # current_admin: Admin = Depends(get_current_active_admin)
+    db: AsyncSession = Depends(get_db),
+    _: AuthenticatedUser = Depends(get_current_active_admin)
 ):
     """
     Create new scraped content from n8n webhook.
+    
+    **Protected endpoint - requires authentication**
     
     - **title**: Title of the scraped content
     - **content**: Main content/body
@@ -63,11 +62,10 @@ async def create_scraped_content(
 async def list_scraped_contents(
     skip: int = Query(0, ge=0, description="Number of records to skip"),
     limit: int = Query(100, ge=1, le=1000, description="Max records to return"),
-    db: AsyncSession = Depends(get_db)
-    # AUTHENTICATION TEMPORARILY DISABLED
-    # current_admin: Admin = Depends(get_current_active_admin)
+    db: AsyncSession = Depends(get_db),
+    _: AuthenticatedUser = Depends(get_current_active_admin)
 ):
-    """Get all scraped contents with pagination"""
+    """Get all scraped contents with pagination (protected - requires authentication)"""
     service = ScrapedContentService(db)
     return await service.get_all_contents(skip=skip, limit=limit)
 
@@ -81,11 +79,10 @@ async def list_scraped_contents(
 async def list_unprocessed_contents(
     skip: int = Query(0, ge=0, description="Number of records to skip"),
     limit: int = Query(100, ge=1, le=1000, description="Max records to return"),
-    db: AsyncSession = Depends(get_db)
-    # AUTHENTICATION TEMPORARILY DISABLED
-    # current_admin: Admin = Depends(get_current_active_admin)
+    db: AsyncSession = Depends(get_db),
+    _: AuthenticatedUser = Depends(get_current_active_admin)
 ):
-    """Get all unprocessed scraped contents"""
+    """Get all unprocessed scraped contents (protected - requires authentication)"""
     service = ScrapedContentService(db)
     return await service.get_unprocessed_contents(skip=skip, limit=limit)
 
@@ -98,11 +95,10 @@ async def list_unprocessed_contents(
 )
 async def get_scraped_content_by_id(
     content_id: UUID,
-    db: AsyncSession = Depends(get_db)
-    # AUTHENTICATION TEMPORARILY DISABLED
-    # current_admin: Admin = Depends(get_current_active_admin)
+    db: AsyncSession = Depends(get_db),
+    _: AuthenticatedUser = Depends(get_current_active_admin)
 ):
-    """Get a specific scraped content by ID"""
+    """Get a specific scraped content by ID (protected - requires authentication)"""
     service = ScrapedContentService(db)
     content = await service.get_content_by_id(content_id)
     
@@ -123,11 +119,10 @@ async def get_scraped_content_by_id(
 )
 async def mark_content_as_processed(
     content_id: UUID,
-    db: AsyncSession = Depends(get_db)
-    # AUTHENTICATION TEMPORARILY DISABLED
-    # current_admin: Admin = Depends(get_current_active_admin)
+    db: AsyncSession = Depends(get_db),
+    _: AuthenticatedUser = Depends(get_current_active_admin)
 ):
-    """Mark content as processed"""
+    """Mark content as processed (protected - requires authentication)"""
     service = ScrapedContentService(db)
     content = await service.mark_as_processed(content_id)
     
@@ -149,11 +144,10 @@ async def mark_content_as_processed(
 async def update_scraped_content(
     content_id: UUID,
     content_data: ScrapedContentUpdate,
-    db: AsyncSession = Depends(get_db)
-    # AUTHENTICATION TEMPORARILY DISABLED
-    # current_admin: Admin = Depends(get_current_active_admin)
+    db: AsyncSession = Depends(get_db),
+    _: AuthenticatedUser = Depends(get_current_active_admin)
 ):
-    """Update an existing scraped content"""
+    """Update an existing scraped content (protected - requires authentication)"""
     service = ScrapedContentService(db)
     updated = await service.update_content(content_id, content_data)
     
@@ -174,11 +168,10 @@ async def update_scraped_content(
 )
 async def delete_scraped_content(
     content_id: UUID,
-    db: AsyncSession = Depends(get_db)
-    # AUTHENTICATION TEMPORARILY DISABLED
-    # current_admin: Admin = Depends(get_current_active_admin)
+    db: AsyncSession = Depends(get_db),
+    _: AuthenticatedUser = Depends(get_current_active_admin)
 ):
-    """Delete a scraped content and its images"""
+    """Delete a scraped content and its images (protected - requires authentication)"""
     service = ScrapedContentService(db)
     deleted = await service.remove_content(content_id)
     
@@ -201,11 +194,10 @@ async def delete_scraped_content(
 async def add_image_to_content(
     content_id: UUID,
     image_data: ScrapedImageCreate,
-    db: AsyncSession = Depends(get_db)
-    # AUTHENTICATION TEMPORARILY DISABLED
-    # current_admin: Admin = Depends(get_current_active_admin)
+    db: AsyncSession = Depends(get_db),
+    _: AuthenticatedUser = Depends(get_current_active_admin)
 ):
-    """Add an image to existing scraped content"""
+    """Add an image to existing scraped content (protected - requires authentication)"""
     service = ScrapedContentService(db)
     image = await service.add_image_to_content(content_id, image_data)
     
