@@ -1,7 +1,7 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import EmailStr
+from pydantic import BaseModel, EmailStr
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -12,16 +12,69 @@ from app.services.subscribers import SubscriberService
 router = APIRouter()
 
 
-@router.post("/", response_model=SubscriberResponse, response_model_exclude_none=True, status_code=status.HTTP_201_CREATED, summary="Subscribe to newsletter")
+@router.post("/", status_code=status.HTTP_202_ACCEPTED, summary="Subscribe to newsletter")
 async def subscribe(subscriber_data: SubscriberCreate, db: AsyncSession = Depends(get_db)):
-    """Subscribe to newsletter (public endpoint - no auth required)"""
+    """
+    Subscribe to newsletter (public endpoint - no auth required).
+    
+    This endpoint will:
+    - Store subscriber data temporarily in Redis (24h TTL)
+    - Send a verification email with a unique token
+    - Subscriber must verify email within 24 hours to complete subscription
+    - If subscriber previously unsubscribed, they will be reactivated immediately
+    
+    If verification is not completed within 24 hours, the user will need to subscribe again.
+    """
     service = SubscriberService(db)
-    subscriber = await service.subscribe(subscriber_data)
-    if not subscriber:
+    result = await service.subscribe(subscriber_data)
+    if not result:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Email already subscribed"
         )
+    
+    # Check if this was a reactivation
+    if result.get("reactivated"):
+        return {
+            "message": "Welcome back! Your subscription has been reactivated successfully.",
+            "email": result["email"],
+            "reactivated": True
+        }
+    
+    return {
+        "message": "Verification email sent. Please check your inbox and verify your email within 24 hours.",
+        "email": result["email"]
+    }
+
+@router.get("/verify-email/{token}", response_model=SubscriberResponse, response_model_exclude_none=True, summary="Verify email and complete subscription")
+async def verify_email(token: str, db: AsyncSession = Depends(get_db)):
+    """
+    Verify email and complete subscription (public endpoint - no auth required).
+    
+    This endpoint will:
+    - Validate the verification token
+    - Create the subscriber in the database
+    - Send a welcome email
+    - Clear the temporary data from Redis
+    
+    The token is valid for 24 hours from the time of subscription.
+    """
+    service = SubscriberService(db)
+    subscriber = await service.verify_email(token)
+    
+    if not subscriber:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired verification token. Please subscribe again."
+        )
+    
+    # Check if already subscribed
+    if isinstance(subscriber, dict) and subscriber.get("already_subscribed"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email already verified and subscribed"
+        )
+    
     return subscriber
 
 @router.get("/", response_model=list[SubscriberResponse], response_model_exclude_none=True, summary="List all subscribers")
@@ -64,14 +117,14 @@ async def get_subscriber_by_email(
     "/{subscriber_id}/unsubscribe",
     response_model=SubscriberResponse,
     response_model_exclude_none=True,
-    summary="Unsubscribe from newsletter (soft delete)"
+    summary="Unsubscribe from newsletter by ID (soft delete)"
 )
 async def unsubscribe(
     subscriber_id: UUID,
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Unsubscribe from newsletter (soft delete).
+    Unsubscribe from newsletter by subscriber ID (soft delete).
     
     **Public endpoint - no auth required (for unsubscribe links in emails)**
     
@@ -88,6 +141,67 @@ async def unsubscribe(
             detail="Subscriber not found"
         )
     return subscriber
+
+
+class UnsubscribeRequest(BaseModel):
+    email: EmailStr
+
+
+@router.post(
+    "/unsubscribe",
+    status_code=status.HTTP_200_OK,
+    summary="Unsubscribe from newsletter by email"
+)
+async def unsubscribe_by_email(
+    request: UnsubscribeRequest,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Unsubscribe from newsletter by email (soft delete).
+    
+    **Public endpoint - no auth required (for unsubscribe page)**
+    
+    This will:
+    - Find subscriber by email
+    - Set is_active to False
+    - Set unsubscribed_at to current timestamp
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    logger.info(f"🔍 Tentando dar unsubscribe para: {request.email}")
+    
+    service = SubscriberService(db)
+    subscriber = await service.get_subscriber_by_email(request.email)
+    
+    logger.info(f"📧 Subscriber encontrado: {subscriber is not None}")
+    if subscriber:
+        logger.info(f"   ID: {subscriber.id}, Active: {subscriber.is_active}")
+    
+    if not subscriber:
+        logger.warning(f"❌ Email não encontrado: {request.email}")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Email not found in our subscription list"
+        )
+    
+    # If already unsubscribed, return success
+    if not subscriber.is_active:
+        logger.info(f"✅ Email já estava cancelado: {request.email}")
+        return {
+            "message": "Email already unsubscribed",
+            "email": request.email
+        }
+    
+    # Unsubscribe
+    logger.info(f"🔄 Cancelando inscrição de: {request.email}")
+    await service.unsubscribe_subscriber(subscriber.id)
+    logger.info(f"✅ Inscrição cancelada com sucesso: {request.email}")
+    
+    return {
+        "message": "Successfully unsubscribed from newsletter",
+        "email": request.email
+    }
 
 
 @router.delete(
