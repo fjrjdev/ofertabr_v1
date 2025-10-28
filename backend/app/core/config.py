@@ -4,14 +4,13 @@ from pathlib import Path
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-# Configura logging
+
 logger = logging.getLogger(__name__)
 
-# Define o diretório raiz do projeto
+
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 ENV_FILE = BASE_DIR / ".env"
 
-# Log apenas se arquivo .env não existir
 if not ENV_FILE.exists():
     logger.warning(f"Arquivo .env não encontrado em: {ENV_FILE}")
 
@@ -64,6 +63,9 @@ class Settings(BaseSettings):
     EMAIL_FROM: str = Field(..., validation_alias='EMAIL_FROM')
     EMAIL_FROM_NAME: str = Field(..., validation_alias='EMAIL_FROM_NAME')
     FRONTEND_URL: str = Field(..., validation_alias='FRONTEND_URL')
+
+    # N8N Webhooks 
+    N8N_WEBHOOK_NEW_SUBSCRIBER: str | None = Field(default=None, validation_alias='N8N_WEBHOOK_NEW_SUBSCRIBER')
 
     model_config = SettingsConfigDict(
         env_file=str(ENV_FILE),
