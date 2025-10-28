@@ -54,13 +54,17 @@ class EmailService:
             True if sent successfully
         """
         try:
-            unsubscribe_url = f"{settings.FRONTEND_URL}/unsubscribe/{subscriber_id}"
+            # Link direto para cancelamento por ID (sem necessidade de digitar email)
+            unsubscribe_url = f"{settings.API_URL}/api/v1/subscribers/{subscriber_id}/unsubscribe-link"
+            # Link alternativo para a página de cancelamento
+            unsubscribe_page_url = f"{settings.FRONTEND_URL}/cancelar-inscricao"
 
             template = self.template_env.get_template('newsletter.html')
             html_content = template.render(
                 title=newsletter_title,
                 content=newsletter_content,
                 unsubscribe_url=unsubscribe_url,
+                unsubscribe_page_url=unsubscribe_page_url,
                 to_name=to_name
             )
 
@@ -81,10 +85,51 @@ class EmailService:
             logger.error(f"Error sending email to {to_email}: {e}")
             return False
 
+    async def send_verification_email(
+        self,
+        to_email: str,
+        to_name: str,
+        verification_token: str
+    ) -> bool:
+        """
+        Send email verification to new subscriber.
+        
+        Args:
+            to_email: Recipient email
+            to_name: Recipient name
+            verification_token: Verification token
+            
+        Returns:
+            True if sent successfully
+        """
+        try:
+            verification_url = f"{settings.FRONTEND_URL}/verify-email/{verification_token}"
+            
+            template = self.template_env.get_template('verify_email.html')
+            html_content = template.render(
+                subscriber_name=to_name,
+                verification_url=verification_url
+            )
+
+            send_smtp_email = sib_api_v3_sdk.SendSmtpEmail(
+                to=[{"email": to_email, "name": to_name}],
+                sender={"email": settings.EMAIL_FROM, "name": settings.EMAIL_FROM_NAME},
+                subject="✉️ Confirme seu email - OfertaBR",
+                html_content=html_content
+            )
+
+            self.api_instance.send_transac_email(send_smtp_email)
+            return True
+
+        except Exception as e:
+            logger.error(f"Error sending verification email to {to_email}: {e}")
+            return False
+
     async def send_welcome_email(
         self,
         to_email: str,
-        to_name: str
+        to_name: str,
+        subscriber_id: str = None
     ) -> bool:
         """
         Send welcome email to new subscriber.
@@ -92,13 +137,22 @@ class EmailService:
         Args:
             to_email: Recipient email
             to_name: Recipient name
+            subscriber_id: Subscriber ID (optional, for unsubscribe link)
             
         Returns:
             True if sent successfully
         """
         try:
+            # Generate unsubscribe URL
+            unsubscribe_url = f"{settings.FRONTEND_URL}/cancelar-inscricao"
+            if subscriber_id:
+                unsubscribe_url = f"{settings.API_URL}/api/v1/subscribers/{subscriber_id}/unsubscribe-link"
+            
             template = self.template_env.get_template('welcome.html')
-            html_content = template.render(subscriber_name=to_name)
+            html_content = template.render(
+                subscriber_name=to_name,
+                unsubscribe_url=unsubscribe_url
+            )
 
             send_smtp_email = sib_api_v3_sdk.SendSmtpEmail(
                 to=[{"email": to_email, "name": to_name}],
