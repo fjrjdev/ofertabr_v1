@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Bem-vindo ao OfertaBR!</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background-color: #f4f4f4;
+      }
+      .email-container {
+        max-width: 600px;
+        margin: 20px auto;
+        background-color: #ffffff;
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+      .header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: #ffffff;
+        padding: 40px 20px;
+        text-align: center;
+      }
+      .header h1 {
+        margin: 0;
+        font-size: 32px;
+        font-weight: 600;
+      }
+      .content {
+        padding: 30px 20px;
+        color: #333333;
+        line-height: 1.6;
+      }
+      .content h2 {
+        color: #667eea;
+        font-size: 24px;
+      }
+      .welcome-message {
+        background-color: #f8f9fa;
+        padding: 20px;
+        border-radius: 5px;
+        margin: 20px 0;
+        text-align: center;
+      }
+      .footer {
+        background-color: #f8f9fa;
+        padding: 20px;
+        text-align: center;
+        border-top: 1px solid #e9ecef;
+        font-size: 14px;
+        color: #6c757d;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="email-container">
+      <div class="header">
+        <h1>🎉 Bem-vindo!</h1>
+      </div>
+      <div class="content">
+        <h2>Olá, {{ subscriber_name }}!</h2>
+        <p>Obrigado por se inscrever no <strong>OfertaBR</strong>!</p>
+
+        <div class="welcome-message">
+          <p>✅ Sua inscrição foi confirmada com sucesso!</p>
+        </div>
+
+        <p>
+          A partir de agora, você receberá nossas newsletters com as melhores
+          ofertas selecionadas especialmente para você.
+        </p>
+
+        <p>Fique atento à sua caixa de entrada! 📬</p>
+
+        <p>Até breve,<br /><strong>Equipe OfertaBR</strong></p>
+      </div>
+      <div class="footer">
+        <p>
+          <strong>OfertaBR</strong> - As melhores ofertas na sua caixa de
+          entrada
+        </p>
+        <p
+          style="
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #dee2e6;
+          "
+        >
+          <a
+            href="{{ unsubscribe_url }}"
+            style="color: #999; text-decoration: none; font-size: 12px"
+          >
+            Cancelar inscrição
+          </a>
+        </p>
+      </div>
+    </div>
+  </body>
+</html>

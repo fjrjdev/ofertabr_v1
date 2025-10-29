@@ -7,6 +7,7 @@ services:
       POSTGRES_DB: ofertabr_db
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sh:/docker-entrypoint-initdb.d/init-db.sh
     ports:
       - "15432:5432"
     healthcheck:
@@ -27,14 +28,14 @@ services:
       start_period: 5s
 
   api:
-    build: .
+    build: ./backend
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --log-level info
     volumes:
-      - .:/app
+      - ./backend:/app
     ports:
       - "8000:8000"
     env_file:
-      - .env
+      - ./.env
     environment:
       - POSTGRES_SERVER=db
       - REDIS_HOST=redis
@@ -46,5 +47,74 @@ services:
       redis:
         condition: service_healthy
 
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: ofertabr_frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+    depends_on:
+      - api
+    restart: unless-stopped
+    profiles:
+      - frontend
+
+  # Frontend em modo desenvolvimento (hot-reload)
+  frontend-dev:
+    image: node:20-alpine
+    container_name: ofertabr_frontend_dev
+    working_dir: /app
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+    command: sh -c "npm install && npm run dev"
+    profiles:
+      - dev
+
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: n8n
+    restart: unless-stopped
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_BASIC_AUTH_ACTIVE=true
+      - N8N_BASIC_AUTH_USER=admin
+      - N8N_BASIC_AUTH_PASSWORD=admin123
+
+      # Timezone
+      - GENERIC_TIMEZONE=America/Sao_Paulo
+      - TZ=America/Sao_Paulo
+
+      # Webhook URL
+      - WEBHOOK_URL=http://localhost:5678/
+
+      - EXECUTIONS_PROCESS=main
+      - EXECUTIONS_MODE=regular
+
+      - DB_TYPE=postgresdb
+      - DB_POSTGRESDB_HOST=db
+      - DB_POSTGRESDB_PORT=5432
+      - DB_POSTGRESDB_DATABASE=n8n_db
+      - DB_POSTGRESDB_USER=postgres
+      - DB_POSTGRESDB_PASSWORD=postgres
+    volumes:
+      - n8n_data:/home/node/.n8n
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
 volumes:
   postgres_data:
+  n8n_data:

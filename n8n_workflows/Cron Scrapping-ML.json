@@ -1,0 +1,629 @@
+{
+  "name": "Cron Scrapping-ML",
+  "nodes": [
+    {
+      "parameters": {
+        "url": "https://r.jina.ai/https://www.mercadolivre.com.br/ofertas#nav-header",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        256,
+        -64
+      ],
+      "id": "825bedbf-6a15-4812-a353-e7d766693513",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Você receberá, em formato markdown, a página de ofertas do Mercado Livre.\n\nSua tarefa é extrair até DEZ produtos distintos e retornar **apenas** um JSON puro e válido — sem texto, sem markdown e sem explicações.\n\n⚠️ INSTRUÇÕES IMPORTANTES:\n- Retorne **apenas** o JSON, começando com `[` e terminando com `]`.\n- **Não inclua** ```json, ``` ou qualquer texto antes ou depois do JSON.\n- Cada produto deve ser um objeto no array.\n- Se algum campo não for encontrado, retorne `null` ou um valor coerente com o tipo.\n- O JSON deve ser válido e poder ser parseado diretamente com `JSON.parse()`.\n\n---\n\n### CAMPOS A EXTRAIR\n\n**OBRIGATÓRIOS:**\n- title: Título completo do produto\n- content: Descrição detalhada do produto (especificações, características)\n- source_url: URL completa da página do produto\n- current_price: Preço atual em formato numérico (ex: 3899.99)\n\n**PREÇO E OFERTA:**\n- original_price: Preço original antes do desconto (se existir)\n- discount_percentage: Porcentagem de desconto em formato numérico (ex: 29.09)\n- installments: Texto das parcelas (ex: \"12x R$ 391,67 sem juros\")\n- free_shipping: Boolean - true se tiver frete grátis, false caso contrário\n\n**INFORMAÇÕES ADICIONAIS:**\n- product_url: Link direto do produto (geralmente igual ao source_url)\n- store_name: Nome do vendedor/loja oficial\n- category: Categoria do produto (ex: \"Notebooks e Computadores\")\n- rating: Nota de avaliação em decimal (ex: 4.85)\n- reviews_count: Número inteiro de avaliações (ex: 2847)\n\n**IMAGENS (array de objetos):**\n- image_url: URL completa da imagem\n- is_featured: true para imagem principal, false para demais\n- display_order: Número inteiro começando em 0\n- alt_text: Texto alternativo (opcional, pode usar o título do produto)\n\n---\n\nRetorne apenas o array JSON completo e válido conforme especificado.  \nNada antes, nada depois, sem markdown.\n\nDados:\n{{ $json.data }}\n",
+        "hasOutputParser": true,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        480,
+        -64
+      ],
+      "id": "526165c6-463d-4b6a-a22e-5feef5066db2",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-2.0-flash",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        560,
+        160
+      ],
+      "id": "1d42404c-3da0-4b5d-b301-61b832fee08b",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "OjR2eppNXmd4fawJ",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first();\n\n// Função para limpar markdown\nfunction cleanMarkdown(text) {\n  return text\n    .replace(/```json\\s*/g, '')\n    .replace(/```\\s*/g, '')\n    .trim();\n}\n\n// Função para consertar JSON truncado\nfunction fixTruncatedJSON(jsonString) {\n  let fixed = jsonString.trim();\n  \n  // Conta colchetes e chaves abertas\n  const openBrackets = (fixed.match(/\\[/g) || []).length;\n  const closeBrackets = (fixed.match(/\\]/g) || []).length;\n  const openBraces = (fixed.match(/\\{/g) || []).length;\n  const closeBraces = (fixed.match(/\\}/g) || []).length;\n  \n  // Remove strings incompletas no final (que não fecham com aspas)\n  // Procura pela última vírgula antes do truncamento\n  const lastValidComma = fixed.lastIndexOf('\",');\n  const lastValidBrace = fixed.lastIndexOf('}');\n  \n  if (lastValidComma > lastValidBrace) {\n    // Se tem uma vírgula após o último objeto completo, corta ali\n    fixed = fixed.substring(0, lastValidComma + 1);\n  } else if (lastValidBrace > 0) {\n    // Se não, corta após o último objeto completo\n    fixed = fixed.substring(0, lastValidBrace + 1);\n  }\n  \n  // Fecha as chaves que faltam\n  const bracesToClose = openBraces - closeBraces;\n  const bracketsToClose = openBrackets - closeBrackets;\n  \n  for (let i = 0; i < bracesToClose; i++) {\n    fixed += '\\n}';\n  }\n  \n  for (let i = 0; i < bracketsToClose; i++) {\n    fixed += '\\n]';\n  }\n  \n  return fixed;\n}\n\n// Função para formatar preço\nfunction formatPrice(price) {\n  return price ? `R$ ${price.toFixed(2).replace('.', ',')}` : 'N/A';\n}\n\ntry {\n  // Pega o output\n  let rawText = item.json.output;\n  \n  // Se for array, pega o primeiro elemento\n  if (Array.isArray(item.json) && item.json.length > 0) {\n    rawText = item.json[0].output;\n  }\n  \n  // Limpa o markdown\n  let cleanText = cleanMarkdown(rawText);\n  \n  // Tenta fazer parse direto\n  let products;\n  try {\n    products = JSON.parse(cleanText);\n  } catch (parseError) {\n    // Se falhar, tenta consertar o JSON truncado\n    console.log('JSON truncado detectado, tentando corrigir...');\n    const fixedJSON = fixTruncatedJSON(cleanText);\n    products = JSON.parse(fixedJSON);\n  }\n  \n  // Garante que é um array\n  if (!Array.isArray(products)) {\n    products = [products];\n  }\n  \n  // Filtra produtos válidos (que tenham pelo menos título ou URL)\n  const validProducts = products.filter(p => p && (p.title || p.product_url || p.source_url));\n  \n  // Processa cada produto\n  const processedProducts = validProducts.map((product, index) => {\n    const savings = product.original_price && product.current_price \n      ? product.original_price - product.current_price \n      : 0;\n    \n    const mainImage = product.images?.[0]?.image_url || null;\n    \n    return {\n      json: {\n        id: `product_${index}`,\n        title: product.title || 'Sem título',\n        product_url: product.product_url || product.source_url,\n        image_url: mainImage,\n        current_price: product.current_price,\n        current_price_formatted: formatPrice(product.current_price),\n        original_price: product.original_price,\n        original_price_formatted: formatPrice(product.original_price),\n        discount_percentage: product.discount_percentage,\n        savings: savings,\n        savings_formatted: formatPrice(savings),\n        installments: product.installments || 'Não informado',\n        free_shipping: product.free_shipping || false,\n        store_name: product.store_name || 'Loja não identificada',\n        rating: product.rating || 0,\n        reviews_count: product.reviews_count || 0,\n        category: product.category,\n        all_images: product.images || [],\n        // Flag indicando se era o último item (pode estar incompleto)\n        is_potentially_incomplete: index === validProducts.length - 1 && cleanText.includes('...truncated')\n      }\n    };\n  });\n  \n  // Adiciona informação sobre produtos processados\n  return processedProducts.length > 0 \n    ? processedProducts \n    : [{ json: { \n        warning: true, \n        message: 'Nenhum produto válido encontrado',\n        products_attempted: products.length \n      }}];\n  \n} catch (error) {\n  // Retorna erro detalhado para debug\n  return [{\n    json: {\n      error: true,\n      message: error.message,\n      error_type: error.name,\n      stack: error.stack,\n      raw_data_preview: String(item.json.output || item.json).substring(0, 500)\n    }\n  }];\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        832,
+        -64
+      ],
+      "id": "a8b7516c-1b86-44b9-aa85-3a65f5a632ca",
+      "name": "Format JSON - JS"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 1
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        32,
+        -64
+      ],
+      "id": "478839bf-6094-465b-be62-b091748002cd",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nfunction parsePrice(value) {\n  if (value === null || value === undefined) return 0;\n  const parsed = parseFloat(value);\n  return isNaN(parsed) ? 0 : parsed;\n}\n\nfunction parseDiscount(value) {\n  if (value === null || value === undefined) return 0;\n  const parsed = parseFloat(value);\n  return isNaN(parsed) ? 0 : parsed;\n}\n\n\nconst scrapedItems = items.map(item => {\n  const product = item.json;\n\n  if (product.error || product.warning) {\n    return null;\n  }\n\n  return {\n    title: product.title || '',\n    content: product.content || product.description || null,\n    source_url: product.product_url || product.source_url || '',\n    current_price: parsePrice(product.current_price),\n    original_price: parsePrice(product.original_price || product.current_price),\n    discount_percentage: parseDiscount(product.discount_percentage),\n    installments: product.installments || null,\n    free_shipping: product.free_shipping === true,\n    store_name: product.store_name || 'Mercado Livre',\n    rating: product.rating || null,\n    reviews_count: product.reviews_count || null,\n    category: product.category || null,\n    \n    images: (product.all_images || []).map((img, index) => ({\n      image_url: img.image_url || img.url || '',\n      alt_text: img.alt_text || img.alt || product.title || '',\n      display_order: index,\n      is_featured: index === 0\n    }))\n  };\n}).filter(item => item !== null);\n\nreturn [{\n  json: {\n    scrapedItems\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1040,
+        -64
+      ],
+      "id": "564dfe77-931a-4f43-b885-10d34849f0ca",
+      "name": "Products Schema"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://ofertabr_v1-api-1:8000/api/v1/scraped_content/batch",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ $json.fullAuth }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $('Products Schema').item.json.scrapedItems }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1520,
+        -64
+      ],
+      "id": "50b0cb40-926e-486d-acdb-895e0174827d",
+      "name": "HTTP Request1"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://ofertabr_v1-api-1:8000/api/v1/auth/service-token",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"service_name\": \"n8n\",\n  \"secret\": \"8252880558200397\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1216,
+        -64
+      ],
+      "id": "af8a1b08-6828-45d2-8760-0ed02d39639a",
+      "name": "Fetch Access Token",
+      "alwaysOutputData": false
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "token",
+              "name": "token",
+              "value": "={{ $json.access_token }}",
+              "type": "string"
+            },
+            {
+              "id": "token_type",
+              "name": "token_type",
+              "value": "={{ $json.token_type }}",
+              "type": "string"
+            },
+            {
+              "id": "expires_in",
+              "name": "expires_in",
+              "value": "={{ $json.expires_in }}",
+              "type": "number"
+            },
+            {
+              "id": "fullAuth",
+              "name": "fullAuth",
+              "value": "=bearer {{ $json.access_token }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.3,
+      "position": [
+        1360,
+        -64
+      ],
+      "id": "75ed7d4e-6a26-45d9-9f73-c74935b0971d",
+      "name": "Organize Token Data"
+    }
+  ],
+  "pinData": {
+    "Format JSON - JS": [
+      {
+        "json": {
+          "id": "product_0",
+          "title": "Tênis Diffusion Fila Masculino Original Corrida Confortável",
+          "product_url": "https://produto.mercadolivre.com.br/MLB-5256354974-tnis-diffusion-fila-masculino-original-corrida-confortavel-_JM?searchVariation=186844906877#polycard_client=offers&deal_print_id=e54b0ca1-d2de-46e3-853a-41d64d52cb94&position=1&tracking_id=4ab60f17-d8a6-46b2-9d0a-e46b2b1cbace",
+          "image_url": "https://http2.mlstatic.com/D_Q_NP_2X_611582-MLB82265806409_022025-AB-tnis-diffusion-fila-masculino-original-corrida-confortavel.webp",
+          "current_price": 242.49,
+          "current_price_formatted": "R$ 242,49",
+          "original_price": 457.85,
+          "original_price_formatted": "R$ 457,85",
+          "discount_percentage": 47,
+          "savings": 215.36,
+          "savings_formatted": "R$ 215,36",
+          "installments": "12x R$23,94",
+          "free_shipping": true,
+          "store_name": "Sandrini Menswear",
+          "rating": 4.8,
+          "reviews_count": 421,
+          "category": null,
+          "all_images": [
+            {
+              "image_url": "https://http2.mlstatic.com/D_Q_NP_2X_611582-MLB82265806409_022025-AB-tnis-diffusion-fila-masculino-original-corrida-confortavel.webp",
+              "is_featured": true,
+              "display_order": 0,
+              "alt_text": "Tênis Diffusion Fila Masculino Original Corrida Confortável"
+            }
+          ],
+          "is_potentially_incomplete": false
+        }
+      },
+      {
+        "json": {
+          "id": "product_1",
+          "title": "Placa Asus Prime A520m-k/am4/ddr4 64gb 90mb0tvq-mcaayo",
+          "product_url": "https://www.mercadolivre.com.br/placa-asus-prime-a520m-kam4ddr4-64gb-90mb0tvq-mcaayo/p/MLB22989141#polycard_client=offers&deal_print_id=e54b0ca1-d2de-46e3-853a-41d64d52cb94&position=2&tracking_id=4ab60f17-d8a6-46b2-9d0a-e46b2b1cbace&wid=MLB5303056096&sid=offers",
+          "image_url": "https://http2.mlstatic.com/D_Q_NP_2X_671266-MLA95942850723_102025-AB.webp",
+          "current_price": 399.9,
+          "current_price_formatted": "R$ 399,90",
+          "original_price": 510.62,
+          "original_price_formatted": "R$ 510,62",
+          "discount_percentage": 21.09,
+          "savings": 110.72000000000003,
+          "savings_formatted": "R$ 110,72",
+          "installments": "12x R$39,12",
+          "free_shipping": true,
+          "store_name": "INPOWER",
+          "rating": 4.8,
+          "reviews_count": 225,
+          "category": null,
+          "all_images": [
+            {
+              "image_url": "https://http2.mlstatic.com/D_Q_NP_2X_671266-MLA95942850723_102025-AB.webp",
+              "is_featured": true,
+              "display_order": 0,
+              "alt_text": "Placa Asus Prime A520m-k/am4/ddr4 64gb 90mb0tvq-mcaayo"
+            }
+          ],
+          "is_potentially_incomplete": false
+        }
+      },
+      {
+        "json": {
+          "id": "product_2",
+          "title": "Carregador Fonte Apple iPad iPhone Turbo Usb-c 20w Original Branco",
+          "product_url": "https://www.mercadolivre.com.br/carregador-fonte-apple-ipad-iphone-turbo-usbc-20w-original/up/MLBU1469462378#polycard_client=offers&deal_print_id=e54b0ca1-d2de-46e3-853a-41d64d52cb94&position=3&tracking_id=4ab60f17-d8a6-46b2-9d0a-e46b2b1cbace&wid=MLB4081146966&sid=offers",
+          "image_url": "https://http2.mlstatic.com/D_Q_NP_2X_785101-MLB93543999954_102025-AB.webp",
+          "current_price": 117.1,
+          "current_price_formatted": "R$ 117,10",
+          "original_price": 248.9,
+          "original_price_formatted": "R$ 248,90",
+          "discount_percentage": 52.96,
+          "savings": 131.8,
+          "savings_formatted": "R$ 131,80",
+          "installments": "12x R$11,56",
+          "free_shipping": true,
+          "store_name": "Loja não identificada",
+          "rating": 4.8,
+          "reviews_count": 5400,
+          "category": null,
+          "all_images": [
+            {
+              "image_url": "https://http2.mlstatic.com/D_Q_NP_2X_785101-MLB93543999954_102025-AB.webp",
+              "is_featured": true,
+              "display_order": 0,
+              "alt_text": "Carregador Fonte Apple iPad iPhone Turbo Usb-c 20w Original Branco"
+            }
+          ],
+          "is_potentially_incomplete": false
+        }
+      },
+      {
+        "json": {
+          "id": "product_3",
+          "title": "Kit 5 Toalhas Banho Gigante Grossa Hotel Luxo 75x150cm 480g Branco",
+          "product_url": "https://www.mercadolivre.com.br/kit-5-toalhas-banho-gigante-grossa-hotel-luxo-75x150cm-480g/up/MLBU749495123#polycard_client=offers&deal_print_id=e54b0ca1-d2de-46e3-853a-41d64d52cb94&position=4&tracking_id=4ab60f17-d8a6-46b2-9d0a-e46b2b1cbace&wid=MLB2653771991&sid=offers",
+          "image_url": "https://http2.mlstatic.com/D_Q_NP_2X_664869-MLB82720252832_032025-AB.webp",
+          "current_price": 144.53,
+          "current_price_formatted": "R$ 144,53",
+          "original_price": 185.29,
+          "original_price_formatted": "R$ 185,29",
+          "discount_percentage": 21.99,
+          "savings": 40.75999999999999,
+          "savings_formatted": "R$ 40,76",
+          "installments": "4x R$36,13 sem juros",
+          "free_shipping": true,
+          "store_name": "Loja não identificada",
+          "rating": 4.4,
+          "reviews_count": 2519,
+          "category": null,
+          "all_images": [
+            {
+              "image_url": "https://http2.mlstatic.com/D_Q_NP_2X_664869-MLB82720252832_032025-AB.webp",
+              "is_featured": true,
+              "display_order": 0,
+              "alt_text": "Kit 5 Toalhas Banho Gigante Grossa Hotel Luxo 75x150cm 480g Branco"
+            }
+          ],
+          "is_potentially_incomplete": false
+        }
+      },
+      {
+        "json": {
+          "id": "product_4",
+          "title": "Mixer Gradiente Cobre Collection Pgmx402 Bronze E Preto E Aço Inoxidável 600w",
+          "product_url": "https://www.mercadolivre.com.br/mixer-gradiente-cobre-collection-pgmx402-bronze-e-preto-e-aco-inoxidavel-600w/p/MLB19610545#polycard_client=offers&deal_print_id=e54b0ca1-d2de-46e3-853a-41d64d52cb94&position=5&tracking_id=4ab60f17-d8a6-46b2-9d0a-e46b2b1cbace&wid=MLB4106678924&sid=offers",
+          "image_url": "https://http2.mlstatic.com/D_Q_NP_2X_610607-MLA96153040961_102025-AB.webp",
+          "current_price": 189,
+          "current_price_formatted": "R$ 189,00",
+          "original_price": 384.47,
+          "original_price_formatted": "R$ 384,47",
+          "discount_percentage": 50.84,
+          "savings": 195.47000000000003,
+          "savings_formatted": "R$ 195,47",
+          "installments": "6x R$31,50 sem juros",
+          "free_shipping": true,
+          "store_name": "Ismafer Ferramentas",
+          "rating": 4.8,
+          "reviews_count": 3869,
+          "category": null,
+          "all_images": [
+            {
+              "image_url": "https://http2.mlstatic.com/D_Q_NP_2X_610607-MLA96153040961_102025-AB.webp",
+              "is_featured": true,
+              "display_order": 0,
+              "alt_text": "Mixer Gradiente Cobre Collection Pgmx402 Bronze E Preto E Aço Inoxidável 600w"
+            }
+          ],
+          "is_potentially_incomplete": false
+        }
+      },
+      {
+        "json": {
+          "id": "product_5",
+          "title": "Árvore De Natal Pinheiro Canadense Luxo 1,80m 800 Galhos Tradicional Verde Imperial Premium Grande Cheia Luvinco",
+          "product_url": "https://www.mercadolivre.com.br/arvore-de-natal-pinheiro-canadense-luxo-180m-800-galhos-tradicional-verde-imperial-premium-grande-cheia-luvinco/p/MLB51763291#polycard_client=offers&deal_print_id=e54b0ca1-d2de-46e3-853a-41d64d52cb94&position=6&tracking_id=4ab60f17-d8a6-46b2-9d0a-e46b2b1cbace&wid=MLB5594279528&sid=offers",
+          "image_url": "https://http2.mlstatic.com/D_Q_NP_2X_905472-MLA96137916281_102025-AB.webp",
+          "current_price": 237.89,
+          "current_price_formatted": "R$ 237,89",
+          "original_price": 374.88,
+          "original_price_formatted": "R$ 374,88",
+          "discount_percentage": 36.54,
+          "savings": 136.99,
+          "savings_formatted": "R$ 136,99",
+          "installments": "6x R$39,65 sem juros",
+          "free_shipping": true,
+          "store_name": "Loja não identificada",
+          "rating": 4.9,
+          "reviews_count": 330,
+          "category": null,
+          "all_images": [
+            {
+              "image_url": "https://http2.mlstatic.com/D_Q_NP_2X_905472-MLA96137916281_102025-AB.webp",
+              "is_featured": true,
+              "display_order": 0,
+              "alt_text": "Árvore De Natal Pinheiro Canadense Luxo 1,80m 800 Galhos Tradicional Verde Imperial Premium Grande Cheia Luvinco"
+            }
+          ],
+          "is_potentially_incomplete": false
+        }
+      },
+      {
+        "json": {
+          "id": "product_6",
+          "title": "Jogo De Toalhas Buddemeyer Brisa Banho 5 Peças",
+          "product_url": "https://produto.mercadolivre.com.br/MLB-2206812595-jogo-de-toalhas-buddemeyer-brisa-banho-5-pecas-_JM#searchVariation=0&position=7&search_layout=grid&deal_print_id=e54b0ca1-d2de-46e3-853a-41d64d52cb94&tracking_id=4ab60f17-d8a6-46b2-9d0a-e46b2b1cbace",
+          "image_url": "https://http2.mlstatic.com/D_Q_NP_2X_661923-MLB83679720328_042025-AB-jogo-de-toalhas-buddemeyer-brisa-banho-5-pecas.webp",
+          "current_price": 199.9,
+          "current_price_formatted": "R$ 199,90",
+          "original_price": 249.9,
+          "original_price_formatted": "R$ 249,90",
+          "discount_percentage": 20.01,
+          "savings": 50,
+          "savings_formatted": "R$ 50,00",
+          "installments": "12x R$19,74",
+          "free_shipping": true,
+          "store_name": "Buddemeyer",
+          "rating": 4.7,
+          "reviews_count": 686,
+          "category": null,
+          "all_images": [
+            {
+              "image_url": "https://http2.mlstatic.com/D_Q_NP_2X_661923-MLB83679720328_042025-AB-jogo-de-toalhas-buddemeyer-brisa-banho-5-pecas.webp",
+              "is_featured": true,
+              "display_order": 0,
+              "alt_text": "Jogo De Toalhas Buddemeyer Brisa Banho 5 Peças"
+            }
+          ],
+          "is_potentially_incomplete": false
+        }
+      },
+      {
+        "json": {
+          "id": "product_7",
+          "title": "Árvore De Natal Pinheiro Canadense Luxo 2,10m 1200 Galhos Tradicional Verde Imperial Premium Grande Cheia Luvinco",
+          "product_url": "https://www.mercadolivre.com.br/arvore-de-natal-pinheiro-canadense-luxo-210m-1200-galhos-tradicional-verde-imperial-premium-grande-cheia-luvinco/p/MLB52866009#searchVariation=MLB52866009&position=8&search_layout=grid&deal_print_id=e54b0ca1-d2de-46e3-853a-41d64d52cb94&tracking_id=4ab60f17-d8a6-46b2-9d0a-e46b2b1cbace",
+          "image_url": "https://http2.mlstatic.com/D_Q_NP_2X_803211-MLA95664438024_102025-AB.webp",
+          "current_price": 379.9,
+          "current_price_formatted": "R$ 379,90",
+          "original_price": 562.38,
+          "original_price_formatted": "R$ 562,38",
+          "discount_percentage": 32.45,
+          "savings": 182.48000000000002,
+          "savings_formatted": "R$ 182,48",
+          "installments": "7x R$54,27 sem juros",
+          "free_shipping": true,
+          "store_name": "Loja não identificada",
+          "rating": 4.9,
+          "reviews_count": 330,
+          "category": null,
+          "all_images": [
+            {
+              "image_url": "https://http2.mlstatic.com/D_Q_NP_2X_803211-MLA95664438024_102025-AB.webp",
+              "is_featured": true,
+              "display_order": 0,
+              "alt_text": "Árvore De Natal Pinheiro Canadense Luxo 2,10m 1200 Galhos Tradicional Verde Imperial Premium Grande Cheia Luvinco"
+            }
+          ],
+          "is_potentially_incomplete": false
+        }
+      },
+      {
+        "json": {
+          "id": "product_8",
+          "title": "Tênis Casual Branco Feminino Sola Reta Vizzano Confortável",
+          "product_url": "https://produto.mercadolivre.com.br/MLB-3748138811-tnis-casual-branco-feminino-sola-reta-vizzano-confortavel-_JM#searchVariation=0&position=9&search_layout=grid&deal_print_id=e54b0ca1-d2de-46e3-853a-41d64d52cb94&tracking_id=4ab60f17-d8a6-46b2-9d0a-e46b2b1cbace",
+          "image_url": "https://http2.mlstatic.com/D_Q_NP_2X_636724-MLB87293055879_072025-AB-tnis-casual-branco-feminino-sola-reta-vizzano-confortavel.webp",
+          "current_price": 74.9,
+          "current_price_formatted": "R$ 74,90",
+          "original_price": 149.9,
+          "original_price_formatted": "R$ 149,90",
+          "discount_percentage": 50.03,
+          "savings": 75,
+          "savings_formatted": "R$ 75,00",
+          "installments": "12x R$7,38",
+          "free_shipping": true,
+          "store_name": "VIZZANO",
+          "rating": 4.8,
+          "reviews_count": 1627,
+          "category": null,
+          "all_images": [
+            {
+              "image_url": "https://http2.mlstatic.com/D_Q_NP_2X_636724-MLB87293055879_072025-AB-tnis-casual-branco-feminino-sola-reta-vizzano-confortavel.webp",
+              "is_featured": true,
+              "display_order": 0,
+              "alt_text": "Tênis Casual Branco Feminino Sola Reta Vizzano Confortável"
+            }
+          ],
+          "is_potentially_incomplete": false
+        }
+      },
+      {
+        "json": {
+          "id": "product_9",
+          "title": "Capa Protetora Colchão Box Casal Padrão Matelado Impermeável",
+          "product_url": "https://produto.mercadolivre.com.br/MLB-4002919471-capa-protetora-colcho-box-casal-padro-matelado-impermeavel-_JM?searchVariation=183132347984#polycard_client=offers&deal_print_id=e54b0ca1-d2de-46e3-853a-41d64d52cb94&position=7&tracking_id=4ab60f17-d8a6-46b2-9d0a-e46b2b1cbace",
+          "image_url": "https://http2.mlstatic.com/D_Q_NP_2X_736268-MLB88970520442_082025-AB-capa-protetora-colcho-box-casal-padro-matelado-impermeavel.webp",
+          "current_price": 33.9,
+          "current_price_formatted": "R$ 33,90",
+          "original_price": 78.9,
+          "original_price_formatted": "R$ 78,90",
+          "discount_percentage": 57.04,
+          "savings": 45.00000000000001,
+          "savings_formatted": "R$ 45,00",
+          "installments": "12x R$3,34",
+          "free_shipping": true,
+          "store_name": "Loja não identificada",
+          "rating": 4.3,
+          "reviews_count": 12136,
+          "category": null,
+          "all_images": [
+            {
+              "image_url": "https://http2.mlstatic.com/D_Q_NP_2X_736268-MLB88970520442_082025-AB-capa-protetora-colcho-box-casal-padro-matelado-impermeavel.webp",
+              "is_featured": true,
+              "display_order": 0,
+              "alt_text": "Capa Protetora Colchão Box Casal Padrão Matelado Impermeável"
+            }
+          ],
+          "is_potentially_incomplete": false
+        }
+      },
+      {
+        "json": {
+          "id": "product_10",
+          "title": "Conjunto Fitness Virginia Top Shorts Meia Coxa Cintura Alta",
+          "image_url": null,
+          "current_price_formatted": "N/A",
+          "original_price_formatted": "N/A",
+          "savings": 0,
+          "savings_formatted": "N/A",
+          "installments": "Não informado",
+          "free_shipping": false,
+          "store_name": "Loja não identificada",
+          "rating": 0,
+          "reviews_count": 0,
+          "all_images": [],
+          "is_potentially_incomplete": false
+        }
+      }
+    ]
+  },
+  "connections": {
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Format JSON - JS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format JSON - JS": {
+      "main": [
+        [
+          {
+            "node": "Products Schema",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Products Schema": {
+      "main": [
+        [
+          {
+            "node": "Fetch Access Token",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Access Token": {
+      "main": [
+        [
+          {
+            "node": "Organize Token Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Organize Token Data": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "versionId": "2daadc26-683c-4d31-a299-6cc23b376e12",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "cca8d6f16ff120f76728646cd77105033a808aa8287c16ef73ab163628ed7653"
+  },
+  "id": "bfk4pIl9sjjWpG3D",
+  "tags": [
+    {
+      "createdAt": "2025-10-27T00:10:28.873Z",
+      "updatedAt": "2025-10-27T00:10:28.873Z",
+      "id": "VLN9KN2rjPZurOVS",
+      "name": "1AM"
+    },
+    {
+      "createdAt": "2025-10-27T00:10:37.615Z",
+      "updatedAt": "2025-10-27T00:10:37.615Z",
+      "id": "OtyKMZOu0ByUdklo",
+      "name": "CRONJOB"
+    }
+  ]
+}
