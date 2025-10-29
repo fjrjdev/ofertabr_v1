@@ -1,6 +1,18 @@
-from fastapi import APIRouter, HTTPException, Query, status
+from datetime import timedelta
 
-from app.schemas.auth import AuthMagicLink, AuthRequest, AuthToken, AuthVerify, EmailManage
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+
+from app.core.config import settings
+from app.core.dependencies import AuthenticatedUser, get_current_active_admin
+from app.core.security import create_access_token
+from app.schemas.auth import (
+    AuthMagicLink,
+    AuthRequest,
+    AuthToken,
+    AuthVerify,
+    EmailManage,
+    ServiceTokenRequest,
+)
 from app.services.auth_service import AuthService
 
 router = APIRouter()
@@ -41,7 +53,7 @@ async def request_access_code(data: AuthRequest):
     return {
         "message": "Access code sent to your email",
         "email": data.email,
-        "expires_in": 900  # 15 minutes
+        "expires_in": 900
     }
 
 
@@ -83,7 +95,7 @@ async def verify_access_code(data: AuthVerify):
     return AuthToken(
         access_token=token,
         token_type="bearer",
-        expires_in=604800  # 7 days
+        expires_in=604800
     )
 
 
@@ -123,7 +135,7 @@ async def request_magic_link(data: AuthMagicLink):
     return {
         "message": "Magic link sent to your email",
         "email": data.email,
-        "expires_in": 900  # 15 minutes
+        "expires_in": 900
     }
 
 
@@ -157,14 +169,68 @@ async def verify_magic_link(
     return AuthToken(
         access_token=jwt_token,
         token_type="bearer",
-        expires_in=604800  # 7 days
+        expires_in=604800
     )
 
 
-# Admin management endpoints (protected)
-from fastapi import Depends as FDepends
-
-from app.core.dependencies import AuthenticatedUser, get_current_active_admin
+@router.post(
+    "/service-token",
+    response_model=AuthToken,
+    summary="Get token for service authentication (n8n, automations)"
+)
+async def get_service_token(data: ServiceTokenRequest):
+    """
+    Get JWT token for service/machine authentication (e.g., n8n workflows).
+    
+    This endpoint allows automated services to authenticate without email verification.
+    
+    **How it works:**
+    1. Configure `N8N_SERVICE_SECRET` in your backend `.env` file
+    2. n8n calls this endpoint with the secret
+    3. Receives a JWT token valid for 7 days
+    4. When token expires, n8n calls this endpoint again to renew
+    
+    **Security:**
+    - The secret is validated against `N8N_SERVICE_SECRET` env var
+    - Only services with the correct secret can get tokens
+    - Tokens expire in 7 days (can be renewed automatically)
+    
+    **Example request:**
+    ```json
+    {
+        "service_name": "n8n",
+        "secret": "your-secret-from-env"
+    }
+    ```
+    
+    **Use in n8n:**
+    - Save this token in n8n credentials
+    - Use in HTTP Request headers: `Authorization: Bearer <token>`
+    - Set up workflow to renew token every 6 days
+    """
+    if data.service_name.lower() != "n8n":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid service name. Currently only 'n8n' is supported."
+        )
+    
+    if data.secret != settings.N8N_SERVICE_SECRET:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid service secret",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    token = create_access_token(
+        data={"sub": f"service:{data.service_name}"},
+        expires_delta=timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    )
+    
+    return AuthToken(
+        access_token=token,
+        token_type="bearer",
+        expires_in=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
+    )
 
 
 @router.post(
@@ -174,7 +240,7 @@ from app.core.dependencies import AuthenticatedUser, get_current_active_admin
 )
 async def add_allowed_email(
     data: EmailManage,
-    current_admin: AuthenticatedUser = FDepends(get_current_active_admin)
+    current_admin: AuthenticatedUser = Depends(get_current_active_admin)
 ):
     """
     Add an email to the allowed admins list.
@@ -204,7 +270,7 @@ async def add_allowed_email(
 )
 async def remove_allowed_email(
     data: EmailManage,
-    current_admin: AuthenticatedUser = FDepends(get_current_active_admin)
+    current_admin: AuthenticatedUser = Depends(get_current_active_admin)
 ):
     """
     Remove an email from the allowed admins list.
@@ -236,7 +302,7 @@ async def remove_allowed_email(
     summary="List allowed admin emails"
 )
 async def list_allowed_emails(
-    current_admin: AuthenticatedUser = FDepends(get_current_active_admin)
+    current_admin: AuthenticatedUser = Depends(get_current_active_admin)
 ):
     """
     List all emails allowed to access admin endpoints.

@@ -16,17 +16,14 @@ if not ENV_FILE.exists():
 
 
 class Settings(BaseSettings):
-    # App
     PROJECT_NAME: str = Field(..., validation_alias='PROJECT_NAME')
     VERSION: str = Field(..., validation_alias='VERSION')
     API_V1_STR: str = Field(..., validation_alias='API_V1_STR')
 
-    # Security
     SECRET_KEY: str = Field(..., validation_alias='SECRET_KEY')
     ALGORITHM: str = Field(default='HS256', validation_alias='ALGORITHM')
     ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(default=30, validation_alias='ACCESS_TOKEN_EXPIRE_MINUTES')
 
-    # Database
     POSTGRES_USER: str = Field(..., validation_alias='POSTGRES_USER')
     POSTGRES_PASSWORD: str = Field(..., validation_alias='POSTGRES_PASSWORD')
     POSTGRES_SERVER: str = Field(..., validation_alias='POSTGRES_SERVER')
@@ -47,7 +44,6 @@ class Settings(BaseSettings):
             f"@{self.POSTGRES_SERVER}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
         )
 
-    # Redis
     REDIS_HOST: str = Field(..., validation_alias='REDIS_HOST')
     REDIS_PORT: int = Field(default=6379, validation_alias='REDIS_PORT')
 
@@ -55,17 +51,16 @@ class Settings(BaseSettings):
     def REDIS_URL(self) -> str:
         return f"redis://{self.REDIS_HOST}:{self.REDIS_PORT}/0"
 
-    # CORS
     BACKEND_CORS_ORIGINS: list[str] = Field(..., validation_alias='BACKEND_CORS_ORIGINS')
 
-    # Email Configuration (Brevo)
     BREVO_API_KEY: str = Field(..., validation_alias='BREVO_API_KEY')
     EMAIL_FROM: str = Field(..., validation_alias='EMAIL_FROM')
     EMAIL_FROM_NAME: str = Field(..., validation_alias='EMAIL_FROM_NAME')
     FRONTEND_URL: str = Field(..., validation_alias='FRONTEND_URL')
+    API_URL: str = Field(..., validation_alias='API_URL')
 
-    # N8N Webhooks 
     N8N_WEBHOOK_NEW_SUBSCRIBER: str | None = Field(default=None, validation_alias='N8N_WEBHOOK_NEW_SUBSCRIBER')
+    N8N_SERVICE_SECRET: str = Field(..., validation_alias='N8N_SERVICE_SECRET')
 
     model_config = SettingsConfigDict(
         env_file=str(ENV_FILE),
