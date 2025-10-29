@@ -12,7 +12,7 @@ class WebhookService:
     """Service for sending webhook notifications"""
 
     def __init__(self):
-        self.timeout = 10.0  # 10 seconds timeout
+        self.timeout = 10.0
 
     async def send_webhook(
         self,
@@ -74,7 +74,6 @@ class WebhookService:
         Returns:
             True if webhook sent successfully
         """
-        # Check if N8N webhook URL is configured
         n8n_webhook_url = getattr(settings, 'N8N_WEBHOOK_NEW_SUBSCRIBER', None)
         
         if not n8n_webhook_url:
@@ -93,6 +92,5 @@ class WebhookService:
         return await self.send_webhook(n8n_webhook_url, data)
 
 
-# Singleton instance
 webhook_service = WebhookService()
 

@@ -7,8 +7,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.v1 import auth, newsletters, scraped_content, subscribers
 from app.core.config import settings
 
-# Import models to register them with SQLAlchemy
-
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -49,13 +47,12 @@ Para acessar endpoints protegidos:
     """,
     openapi_url=f"{settings.API_V1_STR}/openapi.json",
     swagger_ui_parameters={
-        "persistAuthorization": True,  # Mantém o token entre reloads
-        "filter": True,  # Adiciona barra de busca
-        "tryItOutEnabled": True,  # "Try it out" habilitado por padrão
+        "persistAuthorization": True,
+        "filter": True,
+        "tryItOutEnabled": True,
     }
 )
 
-# CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.BACKEND_CORS_ORIGINS,
@@ -64,7 +61,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include routers
 app.include_router(
     auth.router,
     prefix=f"{settings.API_V1_STR}/auth",

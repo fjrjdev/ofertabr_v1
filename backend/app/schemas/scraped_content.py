@@ -5,7 +5,6 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict
 
 
-# Schemas para ScrapedImage
 class ScrapedImageBase(BaseModel):
     image_url: str
     local_path: str | None = None
@@ -46,10 +45,9 @@ class ScrapedImageInDBBase(ScrapedImageBase):
     model_config = ConfigDict(from_attributes=True)
 
 
-# Schemas para ScrapedContent
 class ScrapedContentBase(BaseModel):
     title: str
-    content: str | None = None  # Opcional - será gerado automaticamente se não fornecido
+    content: str | None = None
     source_url: str
     published_at: datetime | None = None
     is_processed: bool | None = False
@@ -77,7 +75,6 @@ class ScrapedContentUpdate(BaseModel):
     published_at: datetime | None = None
     is_processed: bool | None = None
 
-    # Product-specific fields
     product_url: str | None = None
     current_price: Decimal | None = None
     original_price: Decimal | None = None

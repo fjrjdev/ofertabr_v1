@@ -14,13 +14,12 @@ class ScrapedContent(Base, TimestampMixin):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     title = Column(String(500), nullable=False)
-    content = Column(Text, nullable=True)  # Opcional - gerado automaticamente se não fornecido
+    content = Column(Text, nullable=True)
     source_url = Column(String(1000), nullable=False)
     published_at = Column(DateTime(timezone=True), nullable=True)
     scraped_at = Column(DateTime(timezone=True), server_default=func.now())
     is_processed = Column(Boolean, default=False)
 
-    # Product-specific fields
     product_url = Column(String(1000), nullable=True)
     current_price = Column(Numeric(10, 2), nullable=True)
     original_price = Column(Numeric(10, 2), nullable=True)

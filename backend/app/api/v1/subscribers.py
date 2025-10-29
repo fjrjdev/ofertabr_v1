@@ -33,7 +33,6 @@ async def subscribe(subscriber_data: SubscriberCreate, db: AsyncSession = Depend
             detail="Email already subscribed"
         )
     
-    # Check if this was a reactivation
     if result.get("reactivated"):
         return {
             "message": "Welcome back! Your subscription has been reactivated successfully.",
@@ -68,7 +67,6 @@ async def verify_email(token: str, db: AsyncSession = Depends(get_db)):
             detail="Invalid or expired verification token. Please subscribe again."
         )
     
-    # Check if already subscribed
     if isinstance(subscriber, dict) and subscriber.get("already_subscribed"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -166,37 +164,22 @@ async def unsubscribe_by_email(
     - Set is_active to False
     - Set unsubscribed_at to current timestamp
     """
-    import logging
-    logger = logging.getLogger(__name__)
-    
-    logger.info(f"🔍 Tentando dar unsubscribe para: {request.email}")
-    
     service = SubscriberService(db)
     subscriber = await service.get_subscriber_by_email(request.email)
     
-    logger.info(f"📧 Subscriber encontrado: {subscriber is not None}")
-    if subscriber:
-        logger.info(f"   ID: {subscriber.id}, Active: {subscriber.is_active}")
-    
     if not subscriber:
-        logger.warning(f"❌ Email não encontrado: {request.email}")
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Email not found in our subscription list"
         )
     
-    # If already unsubscribed, return success
     if not subscriber.is_active:
-        logger.info(f"✅ Email já estava cancelado: {request.email}")
         return {
             "message": "Email already unsubscribed",
             "email": request.email
         }
     
-    # Unsubscribe
-    logger.info(f"🔄 Cancelando inscrição de: {request.email}")
     await service.unsubscribe_subscriber(subscriber.id)
-    logger.info(f"✅ Inscrição cancelada com sucesso: {request.email}")
     
     return {
         "message": "Successfully unsubscribed from newsletter",

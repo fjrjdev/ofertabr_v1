@@ -17,7 +17,6 @@ class EmailService:
     """Service for sending emails via Brevo"""
 
     def __init__(self):
-        # Limpa a API key de espaços extras
         api_key = settings.BREVO_API_KEY.strip() if settings.BREVO_API_KEY else ""
 
         if not api_key:
@@ -54,9 +53,7 @@ class EmailService:
             True if sent successfully
         """
         try:
-            # Link direto para cancelamento por ID (sem necessidade de digitar email)
             unsubscribe_url = f"{settings.API_URL}/api/v1/subscribers/{subscriber_id}/unsubscribe-link"
-            # Link alternativo para a página de cancelamento
             unsubscribe_page_url = f"{settings.FRONTEND_URL}/cancelar-inscricao"
 
             template = self.template_env.get_template('newsletter.html')
@@ -143,7 +140,6 @@ class EmailService:
             True if sent successfully
         """
         try:
-            # Generate unsubscribe URL
             unsubscribe_url = f"{settings.FRONTEND_URL}/cancelar-inscricao"
             if subscriber_id:
                 unsubscribe_url = f"{settings.API_URL}/api/v1/subscribers/{subscriber_id}/unsubscribe-link"
@@ -208,7 +204,6 @@ class EmailService:
                 else:
                     stats["failed"] += 1
 
-            # Small delay between batches to respect rate limits
             if i + batch_size < len(subscribers):
                 await asyncio.sleep(1)
 
