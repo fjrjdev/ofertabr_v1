@@ -14,7 +14,6 @@ from app.services.webhook_service import webhook_service
 
 logger = logging.getLogger(__name__)
 
-# 24 hours in seconds
 VERIFICATION_TOKEN_TTL = 86400
 
 
@@ -30,51 +29,42 @@ class SubscriberService:
         
         If subscriber previously unsubscribed, they will be reactivated.
         """
-        # Check if subscriber already exists
         existing_subscriber = await self.repo.get_by_email(subscriber_data.email)
         
         if existing_subscriber:
-            # If subscriber is inactive (unsubscribed), reactivate them
             if not existing_subscriber.is_active:
                 logger.info(f"Reactivating previously unsubscribed user: {subscriber_data.email}")
                 
-                # Reactivate subscriber
                 reactivated_subscriber = await self.repo.update(
                     existing_subscriber.id,
                     {
                         "is_active": True,
                         "unsubscribed_at": None,
-                        "name": subscriber_data.name  # Update name in case it changed
+                        "name": subscriber_data.name
                     }
                 )
                 
                 if reactivated_subscriber:
-                    # Clear cache
                     await cache_service.clear_pattern("subscribers:*")
                     logger.info(f"Subscriber reactivated: {subscriber_data.email}")
                     
-                    # Notify N8N about reactivated subscriber
                     await webhook_service.notify_new_subscriber(
                         subscriber_id=str(reactivated_subscriber.id),
                         email=reactivated_subscriber.email,
                         name=reactivated_subscriber.name
                     )
                     
-                    # Return success message indicating reactivation
                     return {
                         "message": "Subscription reactivated successfully", 
                         "email": subscriber_data.email,
                         "reactivated": True
                     }
             else:
-                # Subscriber is already active
                 logger.info(f"Subscriber already active: {subscriber_data.email}")
                 return None
 
-        # Generate unique verification token
         verification_token = secrets.token_urlsafe(32)
         
-        # Store subscriber data in Redis with 24h TTL
         redis_key = f"pending_subscriber:{verification_token}"
         subscriber_dict = {
             "email": subscriber_data.email,
@@ -84,7 +74,6 @@ class SubscriberService:
         await cache_service.set(redis_key, subscriber_dict, ttl=VERIFICATION_TOKEN_TTL)
         logger.info(f"Stored pending subscriber in Redis: {subscriber_data.email}")
         
-        # Send verification email
         email_sent = await self.email_service.send_verification_email(
             to_email=subscriber_data.email,
             to_name=subscriber_data.name,
@@ -104,21 +93,17 @@ class SubscriberService:
         Verify email token and create subscriber in database.
         """
         redis_key = f"pending_subscriber:{token}"
-        
-        # Get subscriber data from Redis
         subscriber_data = await cache_service.get(redis_key)
         
         if not subscriber_data:
             logger.warning(f"Invalid or expired verification token: {token}")
             return None
         
-        # Check if already exists (race condition protection)
         if await self.repo.exists_by_email(subscriber_data["email"]):
             await cache_service.delete(redis_key)
             logger.info(f"Subscriber already exists: {subscriber_data['email']}")
             return {"already_subscribed": True}
         
-        # Create subscriber in database
         subscriber_create = SubscriberCreate(
             email=subscriber_data["email"],
             name=subscriber_data["name"]
@@ -126,14 +111,10 @@ class SubscriberService:
         subscriber = await self.repo.create(subscriber_create)
         
         if subscriber:
-            # Remove from Redis
             await cache_service.delete(redis_key)
-            
-            # Clear subscribers cache
             await cache_service.clear_pattern("subscribers:*")
             logger.info(f"Subscriber verified and created: {subscriber.email}")
             
-            # Notify N8N about new subscriber (for welcome email sequence)
             await webhook_service.notify_new_subscriber(
                 subscriber_id=str(subscriber.id),
                 email=subscriber.email,

@@ -26,20 +26,15 @@ class ScrapedContentService:
         """Get unprocessed scraped contents with caching"""
         cache_key = f"scraped_content:unprocessed:{skip}:{limit}"
 
-        # Try to get from cache
         cached = await cache_service.get(cache_key)
         if cached:
             logger.info(f"Cache hit for unprocessed contents: {cache_key}")
-            # Convert cached dicts back to schema objects
             from app.schemas.scraped_content import ScrapedContentInDBBase
             return [ScrapedContentInDBBase(**item) for item in cached]
 
-        # Get from database
         contents = await self.repo.get_unprocessed(skip=skip, limit=limit)
 
-        # Cache the results
         if contents:
-            # Convert SQLAlchemy models to dicts for caching
             cache_data = []
             for content in contents:
                 content_dict = {
@@ -121,11 +116,9 @@ class ScrapedContentService:
         """
         results = await self.repo.create_batch(contents_data)
 
-        # Clear cache after batch creation
         await cache_service.clear_pattern("scraped_content:unprocessed:*")
         logger.info(f"Cleared unprocessed cache after batch creation of {len(results)} items")
 
-        # Build response with statistics
         from app.schemas.scraped_content import BatchResultItem
 
         created = 0
