@@ -163,6 +163,5 @@ class CacheService:
             return False
 
 
-# Singleton instance
 cache_service = CacheService()
 

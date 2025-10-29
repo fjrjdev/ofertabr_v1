@@ -19,7 +19,6 @@ async_session_maker = async_sessionmaker(
 Base = declarative_base()
 
 
-# Dependency injection
 async def get_db():
     async with async_session_maker() as session:
         try:

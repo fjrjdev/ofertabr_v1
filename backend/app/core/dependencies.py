@@ -18,7 +18,7 @@ class AuthenticatedUser:
     def __init__(self, email: str, user_type: str = "admin"):
         self.email = email
         self.user_type = user_type
-        self.is_active = True  # All valid tokens are active
+        self.is_active = True
 
     def __repr__(self):
         return f"<AuthenticatedUser {self.email}>"
@@ -31,6 +31,7 @@ async def get_current_admin(
     Dependency to get current authenticated admin.
     
     Validates JWT token and extracts user info.
+    Supports both user tokens (email) and service tokens (service:name).
     No database lookup needed!
     
     Args:
@@ -53,6 +54,10 @@ async def get_current_admin(
 
     if token_data is None or token_data.email is None:
         raise credentials_exception
+
+    if token_data.email.startswith("service:"):
+        service_name = token_data.email.replace("service:", "")
+        return AuthenticatedUser(email=token_data.email, user_type="service")
 
     service = AuthService()
     is_allowed = await service._is_allowed_email(token_data.email)
